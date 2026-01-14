@@ -1,0 +1,427 @@
+<!DOCTYPE HTML>
+
+<!--Converted with LaTeX2HTML 2023 (Released January 1, 2023) -->
+<HTML lang="en">
+<HEAD>
+<TITLE>4.3.2 Rabbit ports</TITLE>
+
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+<META NAME="viewport" CONTENT="width=device-width, initial-scale=1.0">
+<META NAME="Generator" CONTENT="LaTeX2HTML v2023">
+
+<LINK REL="STYLESHEET" HREF="sdccman.css">
+
+<LINK REL="next" HREF="node128.html">
+<LINK REL="previous" HREF="node126.html">
+<LINK REL="next" HREF="node128.html">
+</HEAD>
+
+<BODY >
+
+<DIV CLASS="navigation"><!--Navigation Panel-->
+<A
+ HREF="node128.html">
+<IMG WIDTH="37" HEIGHT="24" ALT="next" SRC="next.png"></A> 
+<A
+ HREF="node125.html">
+<IMG WIDTH="26" HEIGHT="24" ALT="up" SRC="up.png"></A> 
+<A
+ HREF="node126.html">
+<IMG WIDTH="63" HEIGHT="24" ALT="previous" SRC="prev.png"></A> 
+<A ID="tex2html1701"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALT="contents" SRC="contents.png"></A> 
+<A ID="tex2html1703"
+  HREF="node230.html">
+<IMG WIDTH="43" HEIGHT="24" ALT="index" SRC="index.png"></A> 
+<BR>
+<B> Next:</B> <A
+ HREF="node128.html">4.3.3 Z80, Z180, Z80N and</A>
+<B> Up:</B> <A
+ HREF="node125.html">4.3 The Z80, Z180, Rabbit</A>
+<B> Previous:</B> <A
+ HREF="node126.html">4.3.1 Startup Code</A>
+ &nbsp; <B>  <A ID="tex2html1702"
+  HREF="node1.html">Contents</A></B> 
+ &nbsp; <B>  <A ID="tex2html1704"
+  HREF="node230.html">Index</A></B> 
+<BR>
+<BR></DIV>
+<!--End of Navigation Panel-->
+<!--Table of Child-Links-->
+<A ID="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL CLASS="ChildLinks">
+<LI><A ID="tex2html1705"
+  HREF="node127.html#SECTION00532100000000000000"><SPAN CLASS="arabic">4</SPAN>.<SPAN CLASS="arabic">3</SPAN>.<SPAN CLASS="arabic">2</SPAN>.<SPAN CLASS="arabic">1</SPAN> Port choice</A>
+<LI><A ID="tex2html1706"
+  HREF="node127.html#SECTION00532200000000000000"><SPAN CLASS="arabic">4</SPAN>.<SPAN CLASS="arabic">3</SPAN>.<SPAN CLASS="arabic">2</SPAN>.<SPAN CLASS="arabic">2</SPAN> Rabbit hardware bugs</A>
+</UL>
+<!--End of Table of Child-Links-->
+<HR>
+
+<H2><A ID="SECTION00532000000000000000">
+<SPAN CLASS="arabic">4</SPAN>.<SPAN CLASS="arabic">3</SPAN>.<SPAN CLASS="arabic">2</SPAN> Rabbit ports</A>
+</H2>
+
+<P>
+SDCC has three Rabbit-supporting ports: r2k for the Rabbit 2000, r2ka
+for the Rabbit 2000A, 2000B, 2000C and 3000, r3ka for the Rabbit 3000A,
+4000 and 6000. Some Rabbits support different memory types (Rabbit
+4000 and later), different memory access modes (Rabbit 5000 and later),
+different instruction modes (Rabbit 4000 and later). All SDCC ports
+assume 8-bit memories, 8-bit memory access mode, 00/default instruction
+set mode (the code generated is also compatible with 10 and 01 instruction
+set mode, but not 11/enhanced instruction set mode).
+
+<P>
+
+<H3><A ID="SECTION00532100000000000000">
+<SPAN CLASS="arabic">4</SPAN>.<SPAN CLASS="arabic">3</SPAN>.<SPAN CLASS="arabic">2</SPAN>.<SPAN CLASS="arabic">1</SPAN> Port choice</A>
+</H3>
+
+<P>
+<TABLE class="PAD  BORDER" style="">
+<TR><TD CLASS="CENTER">Ports vs. Device</TD>
+<TD CLASS="CENTER">R2K</TD>
+<TD CLASS="CENTER">R2kK</TD>
+<TD CLASS="CENTER">R2KB</TD>
+<TD CLASS="CENTER">R2KC</TD>
+<TD CLASS="CENTER">R3K</TD>
+<TD CLASS="CENTER">R3KA</TD>
+<TD CLASS="CENTER">R4K</TD>
+<TD CLASS="CENTER">R5K</TD>
+<TD CLASS="CENTER">R6K</TD>
+</TR>
+<TR><TD CLASS="CENTER">r2k</TD>
+<TD CLASS="CENTER">Y</TD>
+<TD CLASS="CENTER">y</TD>
+<TD CLASS="CENTER">y</TD>
+<TD CLASS="CENTER">y</TD>
+<TD CLASS="CENTER">y</TD>
+<TD CLASS="CENTER">y</TD>
+<TD CLASS="CENTER">y</TD>
+<TD CLASS="CENTER">N</TD>
+<TD CLASS="CENTER">y</TD>
+</TR>
+<TR><TD CLASS="CENTER">r2ka</TD>
+<TD CLASS="CENTER">n</TD>
+<TD CLASS="CENTER">Y</TD>
+<TD CLASS="CENTER">Y</TD>
+<TD CLASS="CENTER">Y</TD>
+<TD CLASS="CENTER">y</TD>
+<TD CLASS="CENTER">y</TD>
+<TD CLASS="CENTER">y</TD>
+<TD CLASS="CENTER">N</TD>
+<TD CLASS="CENTER">y</TD>
+</TR>
+<TR><TD CLASS="CENTER">r3ka</TD>
+<TD CLASS="CENTER">N</TD>
+<TD CLASS="CENTER">N</TD>
+<TD CLASS="CENTER">N</TD>
+<TD CLASS="CENTER">N</TD>
+<TD CLASS="CENTER">N</TD>
+<TD CLASS="CENTER">Y</TD>
+<TD CLASS="CENTER">Y</TD>
+<TD CLASS="CENTER">N</TD>
+<TD CLASS="CENTER">Y</TD>
+</TR>
+</TABLE>
+
+<P>
+Legend:
+
+<P>
+Y - The code this port generates is the best for this CPU.
+
+<P>
+y - The code this port generates will work on this CPU.
+
+<P>
+N - The code this port generates will not work on this CPU.
+
+<P>
+n - The code this port generates will typically not work on this CPU.
+
+<P>
+There are multiple wait state bugs present in some of the the Rabbits.
+The difference between the r2k and r2ka port is additional wait state
+bug workarounds. If all memory used has zero wait states, code from
+the r2ka backend can be safely run on the original Rabbit 2000.
+
+<P>
+The r2k and r2ka port assume that the whole stack has the same number
+of wait states (code from the r2k and r2ka ports can fail is the stack
+spans memories with a different amount of wait states).
+
+<P>
+The Rabbit 2000 has some wait state bugs that SDCC does not work around.
+These bugs result in the number of wait states used being one less
+than configured for some instructions. The workaround has to be supplied
+by the user, by configuring all memories that do use wait states to
+use on additional wait state.
+
+<P>
+For all Rabbit ports, SDCC assumes that all data memory is at least
+as fast (i.e. does not need more wait states) as all code memory.
+Code where this is not the case (e.g. code in fast Flash writing into
+slow battery-backed SRAM) will have to be written in assembler by
+hand.
+
+<P>
+
+<H3><A ID="SECTION00532200000000000000">
+<SPAN CLASS="arabic">4</SPAN>.<SPAN CLASS="arabic">3</SPAN>.<SPAN CLASS="arabic">2</SPAN>.<SPAN CLASS="arabic">2</SPAN> Rabbit hardware bugs</A>
+</H3>
+
+<P>
+<TABLE class="PAD  BORDER" style="">
+<TR><TD CLASS="LEFT">Bug</TD>
+<TD CLASS="CENTER">R2K</TD>
+<TD CLASS="CENTER">R2KA</TD>
+<TD CLASS="CENTER">R2KB</TD>
+<TD CLASS="CENTER">R2KC</TD>
+<TD CLASS="CENTER">R3K</TD>
+<TD CLASS="CENTER">R3KA</TD>
+<TD CLASS="CENTER">R4K</TD>
+<TD CLASS="CENTER">R5K</TD>
+<TD CLASS="CENTER">R6K</TD>
+</TR>
+<TR><TD CLASS="LEFT">ioi / ioe prefix bug</TD>
+<TD CLASS="CENTER">x</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">ddcb / fdcb wait state bug</TD>
+<TD CLASS="CENTER">U</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">conditional jump wait state bug</TD>
+<TD CLASS="CENTER">U</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">ldir / lddr wait state bug</TD>
+<TD CLASS="CENTER">U</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">mul wait state bug</TD>
+<TD CLASS="CENTER">w</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">ldir / lddr split bug</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">S</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">new ldir / lddr wait state bug</TD>
+<TD CLASS="CENTER">w</TD>
+<TD CLASS="CENTER">w</TD>
+<TD CLASS="CENTER">w</TD>
+<TD CLASS="CENTER">w</TD>
+<TD CLASS="CENTER">w</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">16-bit mode alignment bug</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">X</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">ioi / ioe bit bug</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">x</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">ret cc bug</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">X</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">rmw wait state bug</TD>
+<TD CLASS="CENTER">W</TD>
+<TD CLASS="CENTER">W</TD>
+<TD CLASS="CENTER">W</TD>
+<TD CLASS="CENTER">W</TD>
+<TD CLASS="CENTER">W</TD>
+<TD CLASS="CENTER">W</TD>
+<TD CLASS="CENTER">W</TD>
+<TD CLASS="CENTER">W</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">16-bit vs. 8-bit wait state bug</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">W</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">dma vs stack prot. bug</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">X</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+<TR><TD CLASS="LEFT">16-bit dma vs. ldir / lddr / etc. bug</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">X</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+<TD CLASS="CENTER">&nbsp;</TD>
+</TR>
+</TABLE>
+
+<P>
+Legend:
+
+<P>
+x s w u - bug present, worked around by SDCC.
+
+<P>
+X S W U - bug present, not worked around by SDCC.
+
+<P>
+w W u U - wait state bug, only relevant when the Rabbit is configured
+to have wait states for some memory.
+
+<P>
+s S - instruction / data split bug, only relevant when instruction
+/ data split is enabled, which is currently not supported by SDCC.
+
+<P>
+u U - bug can be worked around by the user by configuring memory that
+needs wait states to use one additional wait state.
+
+<P>
+The 16-bit mode alignment bug only affects 16-bit mode, which is not
+currently supported by SDCC.
+
+<P>
+The rmw wait state bug is only relevant when executing fast code writing
+to slow memory, such as code in fast RAM writing to slow battery-backed
+SRAM.
+
+<P>
+The 16-bit vs. 8-bit wait state bug is only relevant when the target
+system uses both 16-bit and 8-bit memories for code, and the 8-bit
+memory requires wait states.
+
+<P>
+The 16-bit dma vs. ldir / lddr / etc. bug is only relevant when using
+DMA and the target system uses 16-bit memory for code. Since SDCC
+uses the block move instructions like ldir, lddr, etc. without applying
+a workaround, this means that code execution and DMA may then not
+happen at the same time. A possible user workaround is to not use
+DMA when using 16-bit memory for code. Among all Rabbit 4000-based
+RCM and BL modules, only the RCM4000 and the RCM4010 use 16-bit memories.
+
+<P>
+There are no documented Rabbit 6000 bugs, but Rabbit 6000 documentation
+in general is lacking compared to the other Rabbits.
+
+<P>
+
+<DIV CLASS="navigation"><HR>
+<!--Navigation Panel-->
+<A
+ HREF="node128.html">
+<IMG WIDTH="37" HEIGHT="24" ALT="next" SRC="next.png"></A> 
+<A
+ HREF="node125.html">
+<IMG WIDTH="26" HEIGHT="24" ALT="up" SRC="up.png"></A> 
+<A
+ HREF="node126.html">
+<IMG WIDTH="63" HEIGHT="24" ALT="previous" SRC="prev.png"></A> 
+<A ID="tex2html1701"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALT="contents" SRC="contents.png"></A> 
+<A ID="tex2html1703"
+  HREF="node230.html">
+<IMG WIDTH="43" HEIGHT="24" ALT="index" SRC="index.png"></A> 
+<BR>
+<B> Next:</B> <A
+ HREF="node128.html">4.3.3 Z80, Z180, Z80N and</A>
+<B> Up:</B> <A
+ HREF="node125.html">4.3 The Z80, Z180, Rabbit</A>
+<B> Previous:</B> <A
+ HREF="node126.html">4.3.1 Startup Code</A>
+ &nbsp; <B>  <A ID="tex2html1702"
+  HREF="node1.html">Contents</A></B> 
+ &nbsp; <B>  <A ID="tex2html1704"
+  HREF="node230.html">Index</A></B> </DIV>
+<!--End of Navigation Panel-->
+
+</BODY>
+</HTML>

@@ -1,0 +1,691 @@
+////////////////////////////////////////////////////////////////////////
+// main.c
+// Dsk Test - Small tool for aiding in diagnosing disk drive(s) problems.
+// Francisco José Sánchez (pacomix@hotmail.com)
+////////////////////////////////////////////////////////////////////////
+
+typedef unsigned char U8;
+typedef unsigned int U16;
+typedef signed char S8;
+typedef signed int S16;
+
+#define false 0
+#define true 1
+#define OFF false
+#define ON true
+#define FALSE false
+#define TRUE true
+#define bool U8
+#define BOOL bool
+
+//#include "Keyboard.h"
+//#include "firmware.h"
+//#include "firmware_fdc.h"
+#include "firm_keys.h"
+#include "firm_screen.h"
+#include "firm_math.h"
+#include "firm_text.h"
+#include "utils.inc"
+
+//Graphic related
+#define CPC_MODE2
+#define CPC_MAX_COLORS 27
+
+#if defined (CPC_MODE0_128)
+#  define CPC_SCR_MODE 0
+#  define CPC_MODE_COLORS_MAX 16
+
+#  define CPC_SCR_LINE_WIDTH_BYTES 64
+#  define CPC_SCR_LINE_WIDTH_PIXEL 127 // 128 pixels - 1 (0 counts). Needed for comparisons using unsigneds
+
+#  define CPC_SCR_CHARS_WIDTH 40
+
+#elif defined (CPC_MODE1)
+#  define CPC_SCR_MODE 1
+#  define CPC_MODE_COLORS_MAX 4
+
+#  define CPC_SCR_LINE_WIDTH_BYTES 64
+#  define CPC_SCR_LINE_WIDTH_PIXEL 320 // 128 pixels - 1 (0 counts). Needed for comparisons using unsigneds
+
+#  define CPC_SCR_CHARS_WIDTH 40
+
+#elif defined (CPC_MODE2)
+#  define CPC_SCR_MODE 2
+#  define CPC_MODE_COLORS_MAX 2
+
+#  define CPC_SCR_LINE_WIDTH_BYTES 64
+#  define CPC_SCR_LINE_WIDTH_PIXEL 640 // 128 pixels - 1 (0 counts). Needed for comparisons using unsigneds
+
+#  define CPC_SCR_CHARS_WIDTH 80
+
+#else
+# error Graphic mode not defined!!!
+#endif
+
+// https://www.cpc-power.com/cpcarchives/index.php?page=articles&num=47
+#define COLOR_HARD_MID_GREY               0x00
+#define COLOR_HARD_LIGHT_GREY               0x01
+
+#define COLOR_HARD_DARK_BLUE          0x04
+#define COLOR_HARD_MID_BLUE           0x15
+#define COLOR_HARD_LIGHT_BLUE         0x17
+
+#define COLOR_HARD_WHITE              0x0B
+
+#define COLOR_HARD_YELLOW       0x0A
+#define COLOR_HARD_LIGHT_YELLOW           0x03
+
+#define COLOR_HARD_DARK_RED           0x5C
+#define COLOR_HARD_MID_RED           0x0C
+
+#define COLOR_HARD_MID_GRANATE           0x1C
+#define COLOR_HARD_LIGHT_GRANATE           0x07
+
+#define COLOR_HARD_LIGHT_ORANGE         0x0E
+
+#define COLOR_HARD_DARK_PINK           0x08
+#define COLOR_HARD_MID_PINK           0x05
+#define COLOR_HARD_LIGHT_PINK           0x0D
+
+#define COLOR_HARD_BLACK           0x14
+
+#define COLOR_HARD_MID_GREEN           0x16
+#define COLOR_HARD_LIGHT_GREEN         0x12
+
+#define COLOR_HARD_GREENISH           0x1E
+#define COLOR_HARD_LIGHT_GREENISH           0x02
+
+#define COLOR_HARD_TURQUESA           0x06
+
+#define MAIN_BG         COLOR_HARD_DARK_RED
+#define FONT_FG_BODY    COLOR_HARD_YELLOW
+#define FONT_FG_MARGIN  COLOR_HARD_YELLOW
+#define FONT_BG         MAIN_BG
+
+extern U8 uKeyPressed;
+extern U8 g_szBytes[6];  // Temp buffer used to convert from integer/byte to ascii
+extern S16 g_sTime;  // Time variable. Contains amount of interruptions happened.
+extern U8 g_realTime[5];
+extern U8 g_realConstant18000[5];
+extern U8 g_realHalf[5];
+
+extern U8 uTrack;
+extern U8 uSectorID;
+extern U8 uFoundErrorSectorID;
+extern U16 uRPMs;
+extern U8 uRPMsDec;
+extern U8 uLoops;
+extern U8 g_realLoops[5];
+extern U8 uMotor;
+extern U8 uDrive;
+extern U8 bMeasuring;
+extern U8 bSearchingSector;
+
+#define MAX_DRIVES 2
+extern U8 uDrives[MAX_DRIVES];
+extern U8 g_uX;
+extern U8 g_uY;
+
+#define OPTION_COUNT 6
+extern const U8* p_szOptions[OPTION_COUNT];
+extern U8 uSelectedOption;
+extern U8 uPrevSelectedOption;
+
+#define OPT_DRIVE 0
+#define OPT_MOTOR 1
+#define OPT_TRACK 2
+#define OPT_CALIB 3
+#define OPT_SECTI 4
+#define OPT_RPM   5
+
+// Our interruption function. It simply increments our timer.
+void myIntFunc(void) __naked {
+  __asm
+  _myInt:
+
+    di
+    push af
+    push hl
+    ld hl, (#_g_sTime)
+    inc hl
+    ld (#_g_sTime), hl
+    pop hl
+    pop af
+    ei
+
+    ret
+  __endasm;
+}
+
+#define ADDR_FIRMWARE_INT 0x0038
+#define ADDR_FIRMWARE_JP_ADDR 0x0039
+void enable_my_int(void) __naked __sdcccall(1) {
+__asm
+  di
+
+	ld   hl,           (#ADDR_FIRMWARE_JP_ADDR)
+	ld   (#_old_int),  hl
+
+	ld   hl,           #_myIntFunc
+	ld   (#ADDR_FIRMWARE_JP_ADDR),    hl
+
+	ei
+	ret
+__endasm;
+}
+
+void disable_my_int(void) __naked __sdcccall(1) {
+__asm
+  di
+
+	ld   hl,           (#_old_int)
+	ld   (#ADDR_FIRMWARE_JP_ADDR),  hl
+
+	ei
+	ret
+__endasm;
+}
+
+
+void putchar(const char myChar) {
+  if('\n' == myChar) {
+    g_uX = 1;
+    g_uY += 1;
+    firm_set_cursor_at(g_uX, g_uY);
+  //} else if(' ' == myChar) {
+  //  g_uX += 1;
+  //  firm_set_cursor_at_x(g_uX);
+  } else if('\t' == myChar) {
+    g_uX += 8;
+    firm_set_cursor_at_x(g_uX);
+  } else {
+    if ((g_uX+1) > CPC_SCR_CHARS_WIDTH) {
+      g_uX = 1;
+      g_uY += 1;
+    }
+    //firm_put_char_at(myChar, g_uY, g_uX);
+    firm_put_char_at_cursor(myChar);
+    //firm_put_char(myChar);
+    //firm_put_char(myChar);
+
+    if ('\x7e' == myChar || '\xa0' == myChar || '\xa1' == myChar || '\xa2' == myChar) {
+      //firm_set_cursor_at(g_uX, g_uY); // Move back the cursor.
+      firm_set_cursor_at(g_uX, g_uY); // Move back the cursor.
+      firm_set_blend(true);
+    } else {
+      firm_set_blend(false);
+      g_uX += 1;
+    }
+
+  }
+}
+
+
+void printText(const U8* text, U8 x, U8 y) {
+  //firm_put_cursor_at(-g_uX, -g_uY);
+  g_uX = x;
+  g_uY = y;
+  firm_set_cursor_at(g_uX, g_uY);
+  do {
+    putchar(*text++);
+  } while (*text != '\0');
+}
+
+
+void printNum(U16 uByte, U16 uBase) {
+  U8 uStrIdx = 0;
+
+  do {
+    U8 uTemp = uByte / uBase;
+    g_szBytes[uStrIdx++] = uTemp + 0x30; // 0x30 - ASCII shift to make 0-9 a valid char
+    uByte -= uBase * uTemp;
+    uBase /= 10;
+  } while(uBase != 0);
+  g_szBytes[uStrIdx] = '\0';
+
+  printText(g_szBytes, g_uX, g_uY);
+}
+
+
+void printInt(U16 uByte, U8 x, U8 y) {
+  g_uX = x;
+  g_uY = y;
+  printNum(uByte, 10000);
+}
+
+
+void printByte(U8 uByte, U8 x, U8 y) {
+  g_uX = x;
+  g_uY = y;
+  printNum((U16) uByte, 100);
+}
+
+
+void printWarning(void) {
+  printText("::: WARNING :::", 32, 16);
+  printText("USE IT AT YOUR OWN RISK", 28, 18);
+}
+
+void printErrorExit(void) {
+  printText("::: ERROR => Can't initialize FDC.", 15, 15);
+}
+
+
+static void printLabel(U8 yPos, const U8* pszLabel) {
+  printText(pszLabel, 1, yPos);
+}
+
+static void printLabelHighlighted(U8 yPos, const U8* pszLabel) {
+  firm_set_inverse();
+  printText(pszLabel, 1, yPos);
+  firm_set_inverse();
+}
+
+
+static void printStatusDrives(void) {
+  { // Detected available drives
+    U8 uCounter;
+    U8 uStartDriveID = 65;
+    g_uX = 79;
+    g_uY = 1;
+    firm_set_cursor_at(g_uX, g_uY);
+    for(uCounter = 0; uCounter != MAX_DRIVES; uCounter++) {
+      if(uDrives[uCounter]) {
+        putchar(uStartDriveID);
+      }
+      uStartDriveID++;
+    }
+  }
+
+  { // Current selected drive
+    g_uX = 79;
+    g_uY = 1;
+    firm_set_cursor_at(g_uX, g_uY);
+    firm_set_inverse();
+    putchar(65 + uDrive);
+    firm_set_inverse();
+  }
+}
+
+static void printStatusMotor(void) {
+  printText(uMotor ? " ON" : "OFF", 24, 1);
+}
+
+static void printStatusTrack(void) {
+  // Current selected track
+  printByte(uTrack, 24, 2);
+}
+
+static void printStatusCalibrate(void) {
+
+}
+
+static void printStatusSectorID(void) {
+  // Current selected Sector ID and result
+  printByte(uSectorID, 24, 4);
+  if(bSearchingSector) {
+    printText("   ", 40, 4);
+  } else {
+    printText(uFoundErrorSectorID ? "NO?" : "YES", 40, 4);
+  }
+}
+
+static void printStatusRPMs(void) {
+  // RPMs
+  if (bMeasuring == 1) {
+    printText("STARTING", 22, 5);
+
+  } else if (bMeasuring == 2) {
+    printText("RUNNING!", 22, 5);
+
+  } else {
+    printInt(uRPMs, 22, 5);
+    if (uRPMs < 100) {
+      printText("   ", 22, 5);
+    } else {
+      printText("  ", 22, 5);
+    }
+    printByte(uRPMsDec, 27, 5);
+    printText(".", 27, 5);
+
+    //printInt(uRPMs, 22, 10);
+    //printByte(uRPMsDec, 27, 11);
+  }
+}
+
+typedef void (*pfnPrintStatus)(void);
+static const pfnPrintStatus pfnStatuses[OPTION_COUNT] = {
+  printStatusDrives,
+  printStatusMotor,
+  printStatusTrack,
+  printStatusCalibrate,
+  printStatusSectorID,
+  printStatusRPMs
+};
+
+
+void printLabels(void) {
+  U8 uCurrentOption = 1;
+  const U8** pOption = &p_szOptions[uCurrentOption];
+
+  do {
+    if (uCurrentOption == uSelectedOption){
+      printLabelHighlighted(uCurrentOption, *pOption);
+    } else {
+      printLabel(uCurrentOption, *pOption);
+    }
+    pfnStatuses[uCurrentOption]();
+    pOption++;
+  } while(++uCurrentOption < OPTION_COUNT);
+
+  printText(p_szOptions[0], 68, 1);
+  pfnStatuses[0]();
+  printText("DskTest v1.0-RC1\nFrancisco Jos""\xA1""e <PACOMIX> S""\xA1""anchez - https://linkedin.com/in/pacomix", 1, 24);
+}
+
+
+void myTurnMotorOn(void) {
+  fdc_TurnMotorOn();
+  uMotor = ON;
+}
+
+
+void myTurnMotorOff(void) {
+  fdc_TurnMotorOff();
+  uMotor = OFF;
+}
+
+
+void myCalibrate(void) {
+  fdc_Calibrate();
+  fdc_MotorWait();
+}
+
+
+void checkAvailableDrives(void) {
+  myTurnMotorOn();
+  uDrives[0] = fdc_DriveReady(0);
+  uDrives[1] = fdc_DriveReady(1);
+  myTurnMotorOff();
+}
+
+
+static void ActionMotor(void) {
+  if(uMotor == ON) {
+    myTurnMotorOff();
+  } else {
+    myTurnMotorOn();
+  }
+}
+
+void main(void) {
+  // Patch the interruption entry point so it jumps always to our interruption
+  // routine. See Z80 interruption documentation.
+  /*
+  __asm
+    di
+    push hl
+    ld hl,#_myInt
+    ld (#0x39),hl
+    pop hl
+    ei
+  __endasm;
+  */
+
+  //InitModeNoFirm(CPC_SCR_MODE);
+  //SetPaletteNoFirm(g_Palette);
+
+  // Keys
+  /*
+  g_tecla_0 = KEY_RETURN;
+  g_tecla_1 = KEY_1;  // Motor On
+  g_tecla_2 = KEY_2;  // Seek sector
+  g_tecla_3 = KEY_3;  // Calibrate
+  g_tecla_4 = KEY_4;  // Seek track
+  g_tecla_5 = KEY_5;  // Measure RPMs
+  g_tecla_6 = KEY_6;
+  g_tecla_7 = KEY_7;
+  g_tecla_8 = KEY_8;
+  g_tecla_9 = KEY_9;
+  g_tecla_10 = KEY_Q; // + track
+  g_tecla_11 = KEY_A; // - track
+  g_tecla_12 = KEY_P; // + SectorID
+  g_tecla_13 = KEY_O; // - SectorID
+  */
+
+  firm_set_screen_mode(CPC_SCR_MODE);
+  //firm_txt_vdu_enable();
+  //firm_txt_reset();
+  //firm_txt_init();
+
+
+  checkAvailableDrives();
+  fdc_SelectDrive(0, 0);
+
+  printWarning();
+  printLabels();
+
+  firm_set_palette_color(0, 0b0000001100000011);
+  firm_set_palette_color(1, 0b0001100000011000);
+
+  do {
+    uKeyPressed = firm_get_key_wait();
+
+    __asm HALT __endasm;
+    uPrevSelectedOption = uSelectedOption;
+    if (uKeyPressed == CHAR_CURSOR_UP) {
+      uSelectedOption -= uSelectedOption > 1 ? 1 : -(OPTION_COUNT-2);
+
+    } else if (uKeyPressed == CHAR_CURSOR_DOWN) {
+      uSelectedOption += uSelectedOption < OPTION_COUNT-1 ? 1 : -(OPTION_COUNT-2);
+
+    } else if (uKeyPressed == CHAR_CURSOR_LEFT) {
+
+      if (OPT_TRACK == uSelectedOption) {
+        uTrack -= uTrack > 0 ? 1 : 0;
+      } else if (OPT_SECTI == uSelectedOption) {
+        uSectorID -= uSectorID > 0 ? 1 : 0;
+      }
+
+    } else if (uKeyPressed == CHAR_CURSOR_RIGHT) {
+
+      if (OPT_TRACK == uSelectedOption) {
+        uTrack += uTrack < 41 ? 1 : 0;
+
+      } else if (OPT_SECTI == uSelectedOption) {
+        uSectorID += uSectorID < 255 ? 1 : 0;
+
+      }
+
+    } else if (uKeyPressed == CHAR_ENTER_BIG || uKeyPressed == CHAR_ENTER_SMALL || uKeyPressed == CHAR_COPY) {
+
+      if (OPT_MOTOR == uSelectedOption) {
+        ActionMotor();
+
+      } else if (OPT_TRACK == uSelectedOption) {
+        fdc_GoToTrack(uTrack);
+
+      } else if (OPT_CALIB == uSelectedOption) {
+        myCalibrate();
+
+      } else if (OPT_SECTI == uSelectedOption) {
+        U8 bMotorStatusAtEntry = uMotor;
+        U8 bFound = false;
+        bSearchingSector = true;
+
+        myTurnMotorOn();
+
+        myCalibrate();
+        fdc_GoToTrack(uTrack);
+        fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+
+        if (bMotorStatusAtEntry == OFF) {
+          myTurnMotorOff();
+        }
+        bSearchingSector = false;
+
+      } else if (OPT_RPM == uSelectedOption) {
+        U8 bFound = false;
+        bMeasuring = true;
+        pfnStatuses[OPT_RPM]();
+
+        myTurnMotorOn();
+        myCalibrate();
+
+        do { // Look for a missing address mark error track and sector
+          fdc_GoToTrack(uTrack);
+          {
+            U8 counter;
+            bSearchingSector = true;
+            for(counter = 0, uFoundErrorSectorID = true; counter != 15 && uFoundErrorSectorID; counter++) {
+              fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+            }
+            bFound = counter == 15 ? true : false;
+            bSearchingSector = false;
+          }
+
+          uSectorID++;
+          pfnStatuses[OPT_SECTI]();
+        } while(bFound == false && uSectorID != 255);
+
+        uSectorID--;
+        pfnStatuses[OPT_SECTI]();
+
+        // Start measuring
+        bMeasuring = 2;
+        pfnStatuses[OPT_RPM]();
+        fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+
+        uLoops = 0;
+        g_sTime = 0;
+        enable_my_int();
+        do {
+          // FindSector with a wrong sector ID will finish after 2 full rotations
+          // of the disc, so uLoops will end up having the number of rotations / 2.
+          fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+          uLoops++;
+        } while(g_sTime <= 3000);
+        disable_my_int();
+
+        bMeasuring = false;
+        myTurnMotorOff();
+
+        // We have now enough rotations accrued over time so let's calc the RPMs
+        uLoops <<= 1;
+        {
+          //float fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
+
+          // Calc the 0.5f and the 300 * 60  real
+          firm_integer_to_real(1, g_realHalf);
+          firm_integer_to_real(2, g_realLoops);
+          firm_real_division(g_realHalf, g_realLoops);
+          firm_integer_to_real(18000, g_realConstant18000);
+
+          firm_integer_to_real((U16) g_sTime, g_realTime);
+          firm_integer_to_real((U16) uLoops, g_realLoops);
+
+          firm_real_multiplication(g_realLoops, g_realConstant18000);
+          firm_real_division(g_realLoops, g_realTime);
+
+          //uRPMs = fRPMs; // integer part of the division
+          firm_real_sub(g_realHalf, g_realLoops);  // subtract 0.5 since real_to_integer rounds up when decs. >= 0.5 or down when decs. < 0.5
+          uRPMs = firm_real_to_integer(g_realHalf);
+
+          //uRPMsDec = (fRPMs - uRPMs) * 100.0f;
+          firm_integer_to_real((U16)uRPMs, g_realTime);
+          firm_real_sub(g_realTime, g_realLoops);
+          firm_integer_to_real((U16)100, g_realLoops);
+          firm_real_multiplication(g_realTime, g_realLoops);
+          uRPMsDec = (U8) firm_real_to_integer(g_realTime);
+        }
+      }
+    }
+
+    printLabel(uPrevSelectedOption, p_szOptions[uPrevSelectedOption]);
+    pfnStatuses[uPrevSelectedOption]();
+    printLabelHighlighted(uSelectedOption, p_szOptions[uSelectedOption]);
+    pfnStatuses[uSelectedOption]();
+
+    // TODO - funny - If we put the printStatus at the bottom the code increases +140 bytes
+    //printStatus();
+
+    // In/de crease track
+    /*
+
+    // Drive
+    if(!cpc_TestKeyF(6)) {
+      g_Keys |= FLAG_KEY_6;
+    } else if (FLAG_KEY_6 & g_Keys) {
+      g_Keys &= ~FLAG_KEY_6;
+
+      checkAvailableDrives();
+      do {
+        uDrive++;
+        if(MAX_DRIVES == uDrive) {
+          uDrive = 0;
+        }
+      } while(0 == uDrives[uDrive]);
+
+      ConfigureFDC(uDrive, 0);
+    }
+
+    // Measure RPMs
+    if(!cpc_TestKeyF(5)) {
+      g_Keys |= FLAG_KEY_5;
+    } else if (FLAG_KEY_5 & g_Keys) {
+      U8 bFound = 0;
+      g_Keys &= ~FLAG_KEY_5;
+      bMeasuring = 1;
+
+      myTurnMotorOn();
+      fdc_Calibrate();
+
+      // Look for a missing address mark error track and sector
+      do {
+        GoToTrack(uTrack);
+        {
+          U8 counter;
+          bSearchingSector = 1;
+          for(counter = 0, uFoundErrorSectorID = 1; 15 != counter && uFoundErrorSectorID; counter++) {
+            FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+          }
+          bFound = 15 == counter ? 1 : 0;
+          bSearchingSector = 0;
+        }
+
+        uSectorID++;
+        printStatus();
+      } while(!bFound && 255 != uSectorID);
+      uSectorID--;
+      printText("@@@@@@@@", 62, 40);
+      printText("RUNNING???", 62, 48);
+
+      // Start measuring
+      FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+
+      g_sTime = -6;
+      uLoops = 0;
+      do {
+        // FindSector with a wrong sector ID will finish after 2 full rotations
+        // of the disc, so uLoops will end up having the number of rotations / 2.
+        FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+        uLoops++;
+      } while(3000 >= g_sTime);
+
+      // We have now enough rotations accrued over time so let's calc the RPMs
+      __asm di __endasm; // Disable interrupts so we don't update anymore g_sTime
+      uLoops <<= 1;
+      {
+        float fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
+        uRPMs = fRPMs; // integer part of the division
+        uRPMsDec = (fRPMs - uRPMs) * 100.0f;
+      }
+      __asm ei __endasm;
+
+      bMeasuring = 0;
+      printText(":FINISHED:", 62, 48);
+      myTurnMotorOff();
+
+    }*/
+  } while(true);
+}

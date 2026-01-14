@@ -1,0 +1,108 @@
+<!DOCTYPE HTML>
+
+<!--Converted with LaTeX2HTML 2023 (Released January 1, 2023) -->
+<HTML lang="en">
+<HEAD>
+<TITLE>8. SDCC Technical Data</TITLE>
+
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+<META NAME="viewport" CONTENT="width=device-width, initial-scale=1.0">
+<META NAME="Generator" CONTENT="LaTeX2HTML v2023">
+
+<LINK REL="STYLESHEET" HREF="sdccman.css">
+
+<LINK REL="next" HREF="node225.html">
+<LINK REL="previous" HREF="node194.html">
+<LINK REL="next" HREF="node206.html">
+</HEAD>
+
+<BODY >
+
+<DIV CLASS="navigation"><!--Navigation Panel-->
+<A
+ HREF="node206.html">
+<IMG WIDTH="37" HEIGHT="24" ALT="next" SRC="next.png"></A> 
+<A
+ HREF="sdccman.html">
+<IMG WIDTH="26" HEIGHT="24" ALT="up" SRC="up.png"></A> 
+<A
+ HREF="node204.html">
+<IMG WIDTH="63" HEIGHT="24" ALT="previous" SRC="prev.png"></A> 
+<A ID="tex2html2187"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALT="contents" SRC="contents.png"></A> 
+<A ID="tex2html2189"
+  HREF="node230.html">
+<IMG WIDTH="43" HEIGHT="24" ALT="index" SRC="index.png"></A> 
+<BR>
+<B> Next:</B> <A
+ HREF="node206.html">8.1 Optimizations</A>
+<B> Up:</B> <A
+ HREF="sdccman.html">SDCC Compiler User Guide</A>
+<B> Previous:</B> <A
+ HREF="node204.html">7.10 Use of SDCC in</A>
+ &nbsp; <B>  <A ID="tex2html2188"
+  HREF="node1.html">Contents</A></B> 
+ &nbsp; <B>  <A ID="tex2html2190"
+  HREF="node230.html">Index</A></B> 
+<BR>
+<BR></DIV>
+<!--End of Navigation Panel-->
+
+<H1><A ID="SECTION00900000000000000000">
+<SPAN CLASS="arabic">8</SPAN>. SDCC Technical Data</A>
+</H1>
+
+<P>
+<BR><HR>
+<!--Table of Child-Links-->
+<A ID="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL CLASS="ChildLinks">
+<LI><A ID="tex2html2191"
+  HREF="node206.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN> Optimizations</A>
+<UL>
+<LI><A ID="tex2html2192"
+  HREF="node207.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">1</SPAN> Sub-expression Elimination</A>
+<LI><A ID="tex2html2193"
+  HREF="node208.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">2</SPAN> Dead-Code Elimination</A>
+<LI><A ID="tex2html2194"
+  HREF="node209.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">3</SPAN> Copy-Propagation</A>
+<LI><A ID="tex2html2195"
+  HREF="node210.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">4</SPAN> Loop Optimizations</A>
+<LI><A ID="tex2html2196"
+  HREF="node211.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">5</SPAN> Loop Reversing</A>
+<LI><A ID="tex2html2197"
+  HREF="node212.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">6</SPAN> Algebraic Simplifications</A>
+<LI><A ID="tex2html2198"
+  HREF="node213.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">7</SPAN> 'switch' Statements</A>
+<LI><A ID="tex2html2199"
+  HREF="node214.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">8</SPAN> Bit-shifting Operations.</A>
+<LI><A ID="tex2html2200"
+  HREF="node215.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">9</SPAN> Bit-rotation</A>
+<LI><A ID="tex2html2201"
+  HREF="node216.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">10</SPAN> Nibble and Byte Swapping</A>
+<LI><A ID="tex2html2202"
+  HREF="node217.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">11</SPAN> Getting a Bit</A>
+<LI><A ID="tex2html2203"
+  HREF="node218.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">12</SPAN> Higher Order Byte / Higher Order Word</A>
+<LI><A ID="tex2html2204"
+  HREF="node219.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">13</SPAN> Placement of Bank-Selection Instructions</A>
+<LI><A ID="tex2html2205"
+  HREF="node220.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">14</SPAN> Lifetime-Optimal Speculative Partial Redundancy Elimination</A>
+<LI><A ID="tex2html2206"
+  HREF="node221.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">15</SPAN> Register Allocation</A>
+<LI><A ID="tex2html2207"
+  HREF="node222.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">16</SPAN> Peephole Optimizer</A>
+</UL>
+<BR>
+<LI><A ID="tex2html2208"
+  HREF="node223.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">2</SPAN> Cyclomatic Complexity</A>
+<LI><A ID="tex2html2209"
+  HREF="node224.html"><SPAN CLASS="arabic">8</SPAN>.<SPAN CLASS="arabic">3</SPAN> Retargetting for other Processors</A>
+</UL>
+<!--End of Table of Child-Links-->
+<BR><HR>
+
+</BODY>
+</HTML>

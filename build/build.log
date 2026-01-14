@@ -1,0 +1,23 @@
+hex2bin v2.5, Copyright (C) 2017 Jacques Pelletier & contributors
+
+Allocate_Memory_and_Rewind:
+Lowest address:   00004000
+Highest address:  00004AA7
+Starting address: 00004000
+Max Length:       2728
+
+Binary file start = 00004000
+Records start     = 00004000
+Highest address   = 00004AA7
+Pad Byte          = FF
+DSK : /Users/pacomix/coding/amstrad/sources/DskTestFirm/generated/current/dsk/DskTestF.dsk
+------------------------------------
+DSK : /Users/pacomix/coding/amstrad/sources/DskTestFirm/generated/current/dsk/DskTestF.dsk
+Amsdos file : /Users/pacomix/coding/amstrad/sources/DskTestFirm/generated/current/image/DskTestF.bin
+Automatically generating header for file
+DSKTESTF.BIN 0
+------------------------------------
+DSK : /Users/pacomix/coding/amstrad/sources/DskTestFirm/generated/current/dsk/DskTestF.dsk
+DSKTESTF.BIN 0
+------------------------------------
+/bin/sh: /Applications/Retro Virtual Machine 2.app/Contents/MacOS/Retro Virtual Machine 2: No such file or directory

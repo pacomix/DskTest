@@ -1,0 +1,18 @@
+# This Python file uses the following encoding: utf-8
+import os
+
+ProjectName = 'DskTestF'
+IntermediatesDir = 'generated'
+TempDir = 'temp'
+OutputDir = 'image'
+ObjectDir = 'obj'
+SourcesDir = ['src']
+ResourcesDir = ['data']
+DskDir = 'dsk'
+#IncDir = ['..\\..\\ThirdParty\\cpcwyzlib\\include']
+#LibDir = ['..\\..\\ThirdParty\\cpcwyzlib\\lib']
+IncDir = [os.path.join('..', '..', 'ThirdParty', 'cpcrslib_mod_tiny', 'include')]
+LibDir = [os.path.join('..', '..', 'ThirdParty', 'cpcrslib_mod_tiny', 'lib')]
+LibLink = ['cpcrslibmodtiny_sdcc420.lib']
+
+DataAddress = '0x6000'

@@ -1,0 +1,9 @@
+XL
+H 1 areas 4 global symbols
+S .__.ABS. Def0000
+A _CODE size E flags 0 addr 0
+S _putchar Def0000
+S _putchar_rr_s Def0000
+S _putchar_rr_dbs Def0009
+T 00 00 21 02 00 39 7E CD 5A BB C9 7B CD 5A BB C9
+R 00 00 00 00

@@ -1,0 +1,73 @@
+<!DOCTYPE HTML>
+
+<!--Converted with LaTeX2HTML 2023 (Released January 1, 2023) -->
+<HTML lang="en">
+<HEAD>
+<TITLE>4.3.7 Complex instructions</TITLE>
+
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+<META NAME="viewport" CONTENT="width=device-width, initial-scale=1.0">
+<META NAME="Generator" CONTENT="LaTeX2HTML v2023">
+
+<LINK REL="STYLESHEET" HREF="sdccman.css">
+
+<LINK REL="next" HREF="node133.html">
+<LINK REL="previous" HREF="node131.html">
+<LINK REL="next" HREF="node133.html">
+</HEAD>
+
+<BODY >
+
+<DIV CLASS="navigation"><!--Navigation Panel-->
+<A
+ HREF="node133.html">
+<IMG WIDTH="37" HEIGHT="24" ALT="next" SRC="next.png"></A> 
+<A
+ HREF="node125.html">
+<IMG WIDTH="26" HEIGHT="24" ALT="up" SRC="up.png"></A> 
+<A
+ HREF="node131.html">
+<IMG WIDTH="63" HEIGHT="24" ALT="previous" SRC="prev.png"></A> 
+<A ID="tex2html1728"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALT="contents" SRC="contents.png"></A> 
+<A ID="tex2html1730"
+  HREF="node230.html">
+<IMG WIDTH="43" HEIGHT="24" ALT="index" SRC="index.png"></A> 
+<BR>
+<B> Next:</B> <A
+ HREF="node133.html">4.3.8 Unsafe reads</A>
+<B> Up:</B> <A
+ HREF="node125.html">4.3 The Z80, Z180, Rabbit</A>
+<B> Previous:</B> <A
+ HREF="node131.html">4.3.6 Small-C calling convention</A>
+ &nbsp; <B>  <A ID="tex2html1729"
+  HREF="node1.html">Contents</A></B> 
+ &nbsp; <B>  <A ID="tex2html1731"
+  HREF="node230.html">Index</A></B> 
+<BR>
+<BR></DIV>
+<!--End of Navigation Panel-->
+
+<H2><A ID="SECTION00537000000000000000">
+<SPAN CLASS="arabic">4</SPAN>.<SPAN CLASS="arabic">3</SPAN>.<SPAN CLASS="arabic">7</SPAN> Complex instructions</A>
+</H2>
+
+<P>
+The Z80 and some derivatives support complex instructions, such as
+ldir, cpir, ... . SDCC only emits these instructions for functions
+in the standard library. Thus, e.g. copying one array into another
+is more efficient when using memcpy() than by using a a user-written
+loop.
+
+<P>
+Depending on the target, code generation options and the parameters
+to the call, SDCC emits ldir for memcpy(), ldir or lsidr for memset(),
+ldi for strcpy(), ldi for strncpy(). Other library functions use the
+complex instructions as well, but for those, function calls are generated.
+
+<P>
+<BR><HR>
+
+</BODY>
+</HTML>

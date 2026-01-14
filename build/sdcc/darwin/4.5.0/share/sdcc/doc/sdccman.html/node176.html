@@ -1,0 +1,127 @@
+<!DOCTYPE HTML>
+
+<!--Converted with LaTeX2HTML 2023 (Released January 1, 2023) -->
+<HTML lang="en">
+<HEAD>
+<TITLE>5.1 Debugging with SDCDB </TITLE>
+
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+<META NAME="viewport" CONTENT="width=device-width, initial-scale=1.0">
+<META NAME="Generator" CONTENT="LaTeX2HTML v2023">
+
+<LINK REL="STYLESHEET" HREF="sdccman.css">
+
+<LINK REL="next" HREF="node184.html">
+<LINK REL="previous" HREF="node175.html">
+<LINK REL="next" HREF="node177.html">
+</HEAD>
+
+<BODY >
+
+<DIV CLASS="navigation"><!--Navigation Panel-->
+<A
+ HREF="node177.html">
+<IMG WIDTH="37" HEIGHT="24" ALT="next" SRC="next.png"></A> 
+<A
+ HREF="node175.html">
+<IMG WIDTH="26" HEIGHT="24" ALT="up" SRC="up.png"></A> 
+<A
+ HREF="node175.html">
+<IMG WIDTH="63" HEIGHT="24" ALT="previous" SRC="prev.png"></A> 
+<A ID="tex2html2014"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALT="contents" SRC="contents.png"></A> 
+<A ID="tex2html2016"
+  HREF="node230.html">
+<IMG WIDTH="43" HEIGHT="24" ALT="index" SRC="index.png"></A> 
+<BR>
+<B> Next:</B> <A
+ HREF="node177.html">5.1.1 Compiling for Debugging</A>
+<B> Up:</B> <A
+ HREF="node175.html">5. Debugging</A>
+<B> Previous:</B> <A
+ HREF="node175.html">5. Debugging</A>
+ &nbsp; <B>  <A ID="tex2html2015"
+  HREF="node1.html">Contents</A></B> 
+ &nbsp; <B>  <A ID="tex2html2017"
+  HREF="node230.html">Index</A></B> 
+<BR>
+<BR></DIV>
+<!--End of Navigation Panel-->
+
+<H1><A ID="SECTION00610000000000000000"></A><A ID="cha:Debugging-with-SDCDB"></A><A ID="3696"></A>
+<BR>
+<SPAN CLASS="arabic">5</SPAN>.<SPAN CLASS="arabic">1</SPAN> Debugging with SDCDB 
+</H1>
+
+<P>
+SDCC is distributed with a source level debugger<A ID="3697"></A>.
+The debugger uses a command line interface, the command repertoire
+of the debugger has been kept as close to gdb<A ID="3698"></A> (the GNU
+debugger) as possible. The configuration and build process is part
+of the standard compiler installation, which also builds and installs
+the debugger in the target directory specified during configuration.
+The debugger allows you debug BOTH at the C source and at the ASM
+source level.
+
+<P>
+<BR><HR>
+<!--Table of Child-Links-->
+<A ID="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL CLASS="ChildLinks">
+<LI><A ID="tex2html2018"
+  HREF="node177.html"><SPAN CLASS="arabic">5</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">1</SPAN> Compiling for Debugging</A>
+<LI><A ID="tex2html2019"
+  HREF="node178.html"><SPAN CLASS="arabic">5</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">2</SPAN> How the Debugger Works</A>
+<LI><A ID="tex2html2020"
+  HREF="node179.html"><SPAN CLASS="arabic">5</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">3</SPAN> Starting the Debugger SDCDB</A>
+<LI><A ID="tex2html2021"
+  HREF="node180.html"><SPAN CLASS="arabic">5</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">4</SPAN> SDCDB Command Line Options</A>
+<LI><A ID="tex2html2022"
+  HREF="node181.html"><SPAN CLASS="arabic">5</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">5</SPAN> SDCDB Debugger Commands</A>
+<UL>
+<LI><A ID="tex2html2023"
+  HREF="node181.html#SECTION00615100000000000000">break [line | file:line | function | file:function]</A>
+<LI><A ID="tex2html2024"
+  HREF="node181.html#SECTION00615200000000000000">clear [line | file:line | function | file:function ]</A>
+<LI><A ID="tex2html2025"
+  HREF="node181.html#SECTION00615300000000000000">continue</A>
+<LI><A ID="tex2html2026"
+  HREF="node181.html#SECTION00615400000000000000">finish</A>
+<LI><A ID="tex2html2027"
+  HREF="node181.html#SECTION00615500000000000000">delete [n]</A>
+<LI><A ID="tex2html2028"
+  HREF="node181.html#SECTION00615600000000000000">info [break | stack | frame | registers ]</A>
+<LI><A ID="tex2html2029"
+  HREF="node181.html#SECTION00615700000000000000">step</A>
+<LI><A ID="tex2html2030"
+  HREF="node181.html#SECTION00615800000000000000">next</A>
+<LI><A ID="tex2html2031"
+  HREF="node181.html#SECTION00615900000000000000">run</A>
+<LI><A ID="tex2html2032"
+  HREF="node181.html#SECTION006151000000000000000">ptype variable </A>
+<LI><A ID="tex2html2033"
+  HREF="node181.html#SECTION006151100000000000000">print variable</A>
+<LI><A ID="tex2html2034"
+  HREF="node181.html#SECTION006151200000000000000">file filename</A>
+<LI><A ID="tex2html2035"
+  HREF="node181.html#SECTION006151300000000000000">frame</A>
+<LI><A ID="tex2html2036"
+  HREF="node181.html#SECTION006151400000000000000">set srcmode</A>
+<LI><A ID="tex2html2037"
+  HREF="node181.html#SECTION006151500000000000000">! simulator command</A>
+<LI><A ID="tex2html2038"
+  HREF="node181.html#SECTION006151600000000000000">quit</A>
+</UL>
+<BR>
+<LI><A ID="tex2html2039"
+  HREF="node182.html"><SPAN CLASS="arabic">5</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">6</SPAN> Interfacing SDCDB with DDD</A>
+<LI><A ID="tex2html2040"
+  HREF="node183.html"><SPAN CLASS="arabic">5</SPAN>.<SPAN CLASS="arabic">1</SPAN>.<SPAN CLASS="arabic">7</SPAN> Interfacing SDCDB with XEmacs</A>
+</UL>
+<!--End of Table of Child-Links-->
+<BR><HR>
+
+</BODY>
+</HTML>
