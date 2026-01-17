@@ -64,7 +64,6 @@ extern U16 uLoops;
 extern U8 g_realLoops[5];
 extern U8 uMotor;
 extern U8 uDrive;
-extern U8 bMeasuring;
 extern U8 bSearchingSector;
 
 #define MAX_DRIVES 2
@@ -281,28 +280,15 @@ static void printStatusSectorID(void) {
   }
 }
 
-static void printStatusRPMs(void) {
-  // RPMs
-  if (bMeasuring == 1) {
-    printText("STARTING", 22, 5);
-
-  } else if (bMeasuring == 2) {
-    printText("RUNNING!", 22, 5);
-  } else {
-    printByte(uRPMsDec, 39, 5);
-    printText(".", 41, 5);
-    printInt(uRPMs, 36, 5);
-  }
-}
-
 typedef void (*pfnPrintStatus)(void);
 static const pfnPrintStatus pfnStatuses[OPTION_COUNT] = {
   printStatusDrives,
+  
   printStatusMotor,
   printStatusTrack,
   printStatusCalibrate,
   printStatusSectorID,
-  printStatusRPMs
+  printStatusCalibrate // This is a dummy to comply with one print status function for each option
 };
 
 
@@ -368,8 +354,8 @@ void calcRPMs(void) {
   uRPMsDec = (fRPMs - uRPMs) * 100.0f;
   */
 
-  //fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
-  //// Calc the 0.5f and the 300 * 60  real
+  ////fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
+  // Calc the 0.5f and the 300 * 60  real
   U16 dosUloops = uLoops << 1;
   firm_integer_to_real(1, g_realHalf);
   firm_integer_to_real(2, g_realLoops);
@@ -390,6 +376,11 @@ void calcRPMs(void) {
   firm_integer_to_real((U16)100, g_realLoops);
   firm_real_multiplication(g_realTime, g_realLoops);
   uRPMsDec = (U8) firm_real_to_integer(g_realTime);
+
+  // Print the current calculated RPMs
+  printByte(uRPMsDec, 39, 5);
+  printText(".", 41, 5);
+  printInt(uRPMs, 36, 5);
   
 }
 
@@ -503,8 +494,7 @@ void main(void) {
 
       } else if (OPT_RPM == uSelectedOption) {
         U8 bFound = false;
-        bMeasuring = true;
-        pfnStatuses[OPT_RPM]();
+        printText("STARTING", 22, 5);
 
         myTurnMotorOn();
         myCalibrate();
@@ -529,8 +519,7 @@ void main(void) {
         pfnStatuses[OPT_SECTI]();
 
         // Start measuring
-        bMeasuring = 2;
-        pfnStatuses[OPT_RPM]();
+        printText("RUNNING!", 22, 5);
         fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
         U16 uLoopsBck;
@@ -548,19 +537,15 @@ void main(void) {
             uLoopsBck=uLoops;
             uElapsedSeconds+=2;
 
-            bMeasuring=false;
             //disable_my_int();
             calcRPMs();
-            printStatusRPMs(); //calling this more than once for some reason breaks everything. por alguna razon uLoops se modifica dentro del printStatus o calcRPMS
             uLoops=uLoopsBck;
             //enable_my_int();
-            bMeasuring=2;
           }
 
         } while(g_sTime <= 18000);
         disable_my_int();
 
-        bMeasuring = false;
         myTurnMotorOff();
 
         // Test 292 rpms
