@@ -1,0 +1,11 @@
+*.pyc
+**/obj
+**/.DS_Store
+*.ignore
+*.bak
+**/intermediates
+**/generated
+**/*.log
+CPC_Symbols.fot
+WinAPE.ini
+last_build
