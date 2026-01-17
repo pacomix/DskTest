@@ -5,9 +5,11 @@
 ////////////////////////////////////////////////////////////////////////
 
 typedef unsigned char U8;
-typedef unsigned int U16;
+typedef unsigned short int U16;
 typedef signed char S8;
-typedef signed int S16;
+typedef signed short int S16;
+typedef unsigned long int U32;
+typedef signed long int I32;
 
 #define false 0
 #define true 1
@@ -27,80 +29,24 @@ typedef signed int S16;
 #include "firm_text.h"
 #include "utils.inc"
 
-//Graphic related
+// Set the graphic mode
 #define CPC_MODE2
-#define CPC_MAX_COLORS 27
 
-#if defined (CPC_MODE0_128)
-#  define CPC_SCR_MODE 0
-#  define CPC_MODE_COLORS_MAX 16
+# if defined (CPC_MODE0)
+#   define CPC_SCR_MODE 0
+#   define CPC_SCR_CHARS_WIDTH 40
 
-#  define CPC_SCR_LINE_WIDTH_BYTES 64
-#  define CPC_SCR_LINE_WIDTH_PIXEL 127 // 128 pixels - 1 (0 counts). Needed for comparisons using unsigneds
+# elif defined (CPC_MODE1)
+#   define CPC_SCR_MODE 1
+#   define CPC_SCR_CHARS_WIDTH 40
 
-#  define CPC_SCR_CHARS_WIDTH 40
+# elif defined (CPC_MODE2)
+#   define CPC_SCR_MODE 2
+#   define CPC_SCR_CHARS_WIDTH 80
 
-#elif defined (CPC_MODE1)
-#  define CPC_SCR_MODE 1
-#  define CPC_MODE_COLORS_MAX 4
-
-#  define CPC_SCR_LINE_WIDTH_BYTES 64
-#  define CPC_SCR_LINE_WIDTH_PIXEL 320 // 128 pixels - 1 (0 counts). Needed for comparisons using unsigneds
-
-#  define CPC_SCR_CHARS_WIDTH 40
-
-#elif defined (CPC_MODE2)
-#  define CPC_SCR_MODE 2
-#  define CPC_MODE_COLORS_MAX 2
-
-#  define CPC_SCR_LINE_WIDTH_BYTES 64
-#  define CPC_SCR_LINE_WIDTH_PIXEL 640 // 128 pixels - 1 (0 counts). Needed for comparisons using unsigneds
-
-#  define CPC_SCR_CHARS_WIDTH 80
-
-#else
-# error Graphic mode not defined!!!
+# else
+#   error Graphic mode not defined!!!
 #endif
-
-// https://www.cpc-power.com/cpcarchives/index.php?page=articles&num=47
-#define COLOR_HARD_MID_GREY               0x00
-#define COLOR_HARD_LIGHT_GREY               0x01
-
-#define COLOR_HARD_DARK_BLUE          0x04
-#define COLOR_HARD_MID_BLUE           0x15
-#define COLOR_HARD_LIGHT_BLUE         0x17
-
-#define COLOR_HARD_WHITE              0x0B
-
-#define COLOR_HARD_YELLOW       0x0A
-#define COLOR_HARD_LIGHT_YELLOW           0x03
-
-#define COLOR_HARD_DARK_RED           0x5C
-#define COLOR_HARD_MID_RED           0x0C
-
-#define COLOR_HARD_MID_GRANATE           0x1C
-#define COLOR_HARD_LIGHT_GRANATE           0x07
-
-#define COLOR_HARD_LIGHT_ORANGE         0x0E
-
-#define COLOR_HARD_DARK_PINK           0x08
-#define COLOR_HARD_MID_PINK           0x05
-#define COLOR_HARD_LIGHT_PINK           0x0D
-
-#define COLOR_HARD_BLACK           0x14
-
-#define COLOR_HARD_MID_GREEN           0x16
-#define COLOR_HARD_LIGHT_GREEN         0x12
-
-#define COLOR_HARD_GREENISH           0x1E
-#define COLOR_HARD_LIGHT_GREENISH           0x02
-
-#define COLOR_HARD_TURQUESA           0x06
-
-#define MAIN_BG         COLOR_HARD_DARK_RED
-#define FONT_FG_BODY    COLOR_HARD_YELLOW
-#define FONT_FG_MARGIN  COLOR_HARD_YELLOW
-#define FONT_BG         MAIN_BG
 
 extern U8 uKeyPressed;
 extern U8 g_szBytes[6];  // Temp buffer used to convert from integer/byte to ascii
@@ -114,7 +60,7 @@ extern U8 uSectorID;
 extern U8 uFoundErrorSectorID;
 extern U16 uRPMs;
 extern U8 uRPMsDec;
-extern U8 uLoops;
+extern U16 uLoops;
 extern U8 g_realLoops[5];
 extern U8 uMotor;
 extern U8 uDrive;
@@ -234,14 +180,19 @@ void printText(const U8* text, U8 x, U8 y) {
 
 void printNum(U16 uByte, U16 uBase) {
   U8 uStrIdx = 0;
-
+  g_szBytes[0] = 0x20;
+  g_szBytes[1] = 0x20;
+  g_szBytes[2] = 0x20;
+  g_szBytes[3] = 0x20;
+  g_szBytes[4] = 0x20;
+  g_szBytes[5] = 0x20;
   do {
     U8 uTemp = uByte / uBase;
     g_szBytes[uStrIdx++] = uTemp + 0x30; // 0x30 - ASCII shift to make 0-9 a valid char
     uByte -= uBase * uTemp;
     uBase /= 10;
   } while(uBase != 0);
-  g_szBytes[uStrIdx] = '\0';
+  g_szBytes[5] = '\0';
 
   printText(g_szBytes, g_uX, g_uY);
 }
@@ -257,7 +208,7 @@ void printInt(U16 uByte, U8 x, U8 y) {
 void printByte(U8 uByte, U8 x, U8 y) {
   g_uX = x;
   g_uY = y;
-  printNum((U16) uByte, 100);
+  printNum((U16) uByte, 10000);
 }
 
 
@@ -337,19 +288,10 @@ static void printStatusRPMs(void) {
 
   } else if (bMeasuring == 2) {
     printText("RUNNING!", 22, 5);
-
   } else {
-    printInt(uRPMs, 22, 5);
-    if (uRPMs < 100) {
-      printText("   ", 22, 5);
-    } else {
-      printText("  ", 22, 5);
-    }
-    printByte(uRPMsDec, 27, 5);
-    printText(".", 27, 5);
-
-    //printInt(uRPMs, 22, 10);
-    //printByte(uRPMsDec, 27, 11);
+    printByte(uRPMsDec, 39, 5);
+    printText(".", 41, 5);
+    printInt(uRPMs, 36, 5);
   }
 }
 
@@ -418,7 +360,42 @@ static void ActionMotor(void) {
   }
 }
 
+void calcRPMs(void) {
+  /*
+  float fRPMs;
+  fRPMs = (uLoops * 36000.0f) / (g_sTime * 1.0f);
+  uRPMs = fRPMs; // integer part of the division
+  uRPMsDec = (fRPMs - uRPMs) * 100.0f;
+  */
+
+  //fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
+  //// Calc the 0.5f and the 300 * 60  real
+  U16 dosUloops = uLoops << 1;
+  firm_integer_to_real(1, g_realHalf);
+  firm_integer_to_real(2, g_realLoops);
+  firm_real_division(g_realHalf, g_realLoops);
+  firm_integer_to_real(18000, g_realConstant18000);
+
+  firm_integer_to_real((U16) g_sTime, g_realTime);
+  firm_integer_to_real((U16) dosUloops, g_realLoops);
+
+  firm_real_multiplication(g_realLoops, g_realConstant18000);
+  firm_real_division(g_realLoops, g_realTime);
+
+  firm_real_sub(g_realHalf, g_realLoops);  // subtract 0.5 since real_to_integer rounds up when decs. >= 0.5 or down when decs. < 0.5
+  uRPMs = firm_real_to_integer(g_realHalf);
+
+  firm_integer_to_real((U16)uRPMs, g_realTime);
+  firm_real_sub(g_realTime, g_realLoops);
+  firm_integer_to_real((U16)100, g_realLoops);
+  firm_real_multiplication(g_realTime, g_realLoops);
+  uRPMsDec = (U8) firm_real_to_integer(g_realTime);
+  
+}
+
 void main(void) {
+  //float fGreat = 36000.0f;
+  //float fDiv;
   // Patch the interruption entry point so it jumps always to our interruption
   // routine. See Z80 interruption documentation.
   /*
@@ -464,8 +441,8 @@ void main(void) {
 
   printWarning();
   printLabels();
-
-  firm_set_palette_color(0, 0b0000001100000011);
+  
+  //firm_set_palette_color(0, 0b0000001100000011);
   firm_set_palette_color(1, 0b0001100000011000);
 
   do {
@@ -556,48 +533,39 @@ void main(void) {
         pfnStatuses[OPT_RPM]();
         fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
+        U16 uLoopsBck;
         uLoops = 0;
         g_sTime = 0;
+        U8 uElapsedSeconds = 0;
         enable_my_int();
         do {
           // FindSector with a wrong sector ID will finish after 2 full rotations
           // of the disc, so uLoops will end up having the number of rotations / 2.
           fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
           uLoops++;
-        } while(g_sTime <= 3000);
+          
+          if ((g_sTime / 600) > uElapsedSeconds) {
+            uLoopsBck=uLoops;
+            uElapsedSeconds+=2;
+
+            bMeasuring=false;
+            //disable_my_int();
+            calcRPMs();
+            printStatusRPMs(); //calling this more than once for some reason breaks everything. por alguna razon uLoops se modifica dentro del printStatus o calcRPMS
+            uLoops=uLoopsBck;
+            //enable_my_int();
+            bMeasuring=2;
+          }
+
+        } while(g_sTime <= 18000);
         disable_my_int();
 
         bMeasuring = false;
         myTurnMotorOff();
 
-        // We have now enough rotations accrued over time so let's calc the RPMs
-        uLoops <<= 1;
-        {
-          //float fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
-
-          // Calc the 0.5f and the 300 * 60  real
-          firm_integer_to_real(1, g_realHalf);
-          firm_integer_to_real(2, g_realLoops);
-          firm_real_division(g_realHalf, g_realLoops);
-          firm_integer_to_real(18000, g_realConstant18000);
-
-          firm_integer_to_real((U16) g_sTime, g_realTime);
-          firm_integer_to_real((U16) uLoops, g_realLoops);
-
-          firm_real_multiplication(g_realLoops, g_realConstant18000);
-          firm_real_division(g_realLoops, g_realTime);
-
-          //uRPMs = fRPMs; // integer part of the division
-          firm_real_sub(g_realHalf, g_realLoops);  // subtract 0.5 since real_to_integer rounds up when decs. >= 0.5 or down when decs. < 0.5
-          uRPMs = firm_real_to_integer(g_realHalf);
-
-          //uRPMsDec = (fRPMs - uRPMs) * 100.0f;
-          firm_integer_to_real((U16)uRPMs, g_realTime);
-          firm_real_sub(g_realTime, g_realLoops);
-          firm_integer_to_real((U16)100, g_realLoops);
-          firm_real_multiplication(g_realTime, g_realLoops);
-          uRPMsDec = (U8) firm_real_to_integer(g_realTime);
-        }
+        // Test 292 rpms
+        //uLoops = 39;
+        calcRPMs();
       }
     }
 
@@ -689,3 +657,5 @@ void main(void) {
     }*/
   } while(true);
 }
+
+
