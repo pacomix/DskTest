@@ -37,7 +37,6 @@ _uSectorID:: .db #0xC1
 _uFoundErrorSectorID:: .db #0x01
 _uMotor:: .db #0x00
 _uDrive:: .db #0x00
-_bMeasuring:: .db #0x00
 _bSearchingSector:: .db #0x01
 _uRPMs:: .dw #0x012c
 _uRPMsDec:: .db #0x00
