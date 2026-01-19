@@ -37,10 +37,10 @@ _uSectorID:: .db #0xC1
 _uFoundErrorSectorID:: .db #0x01
 _uMotor:: .db #0x00
 _uDrive:: .db #0x00
-_bSearchingSector:: .db #0x01
 _uRPMs:: .dw #0x012c
 _uRPMsDec:: .db #0x00
-_uLoops:: .db #0x00
+_uLoops:: .dw #0x0000
+_uElapsedSeconds:: .db #0x00
 _g_szBytes:: .db #0x00,#0x00,#0x00,#0x00,#0x00,#0x00
 _g_sTime:: .dw #0x0000
 _g_Keys:: .dw #0xFFFF

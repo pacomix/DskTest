@@ -19,6 +19,8 @@ typedef signed long int I32;
 #define TRUE true
 #define bool U8
 #define BOOL bool
+#define MOTOR_OFF OFF
+#define MOTOR_ON ON
 
 //#include "Keyboard.h"
 //#include "firmware.h"
@@ -30,6 +32,8 @@ typedef signed long int I32;
 #include "utils.inc"
 
 // Set the graphic mode
+// TODO - Implement and TEST functionality when loaded from a CPC464. Distribute TWO .dsks
+#define CPC_MODEL_6128
 #define CPC_MODE2
 
 # if defined (CPC_MODE0)
@@ -50,7 +54,7 @@ typedef signed long int I32;
 
 extern U8 uKeyPressed;
 extern U8 g_szBytes[6];  // Temp buffer used to convert from integer/byte to ascii
-extern S16 g_sTime;  // Time variable. Contains amount of interruptions happened.
+extern U16 g_sTime;  // Time variable. Contains amount of interruptions happened.
 extern U8 g_realTime[5];
 extern U8 g_realConstant18000[5];
 extern U8 g_realHalf[5];
@@ -61,10 +65,10 @@ extern U8 uFoundErrorSectorID;
 extern U16 uRPMs;
 extern U8 uRPMsDec;
 extern U16 uLoops;
+extern U8 uElapsedSeconds;
 extern U8 g_realLoops[5];
 extern U8 uMotor;
 extern U8 uDrive;
-extern U8 bSearchingSector;
 
 #define MAX_DRIVES 2
 extern U8 uDrives[MAX_DRIVES];
@@ -210,24 +214,13 @@ void printByte(U8 uByte, U8 x, U8 y) {
   printNum((U16) uByte, 10000);
 }
 
-
-void printWarning(void) {
-  printText("::: WARNING :::", 32, 16);
-  printText("USE IT AT YOUR OWN RISK", 28, 18);
-}
-
-void printErrorExit(void) {
-  printText("::: ERROR => Can't initialize FDC.", 15, 15);
-}
-
-
 static void printLabel(U8 yPos, const U8* pszLabel) {
   printText(pszLabel, 1, yPos);
 }
 
 static void printLabelHighlighted(U8 yPos, const U8* pszLabel) {
   firm_set_inverse();
-  printText(pszLabel, 1, yPos);
+  printLabel(yPos, pszLabel);
   firm_set_inverse();
 }
 
@@ -273,17 +266,12 @@ static void printStatusCalibrate(void) {
 static void printStatusSectorID(void) {
   // Current selected Sector ID and result
   printByte(uSectorID, 24, 4);
-  if(bSearchingSector) {
-    printText("   ", 40, 4);
-  } else {
-    printText(uFoundErrorSectorID ? "NO?" : "YES", 40, 4);
-  }
+  printText(uFoundErrorSectorID ? "NO!" : "YES", 40, 4);
 }
 
 typedef void (*pfnPrintStatus)(void);
 static const pfnPrintStatus pfnStatuses[OPTION_COUNT] = {
   printStatusDrives,
-  
   printStatusMotor,
   printStatusTrack,
   printStatusCalibrate,
@@ -293,18 +281,19 @@ static const pfnPrintStatus pfnStatuses[OPTION_COUNT] = {
 
 
 void printLabels(void) {
-  U8 uCurrentOption = 1;
+  U8 uCurrentOption = 0;
   const U8** pOption = &p_szOptions[uCurrentOption];
 
   do {
-    if (uCurrentOption == uSelectedOption){
-      printLabelHighlighted(uCurrentOption, *pOption);
-    } else {
+    // if (uCurrentOption == uSelectedOption){
+      // printLabelHighlighted(uCurrentOption, *pOption);
+    // } else {
       printLabel(uCurrentOption, *pOption);
-    }
-    pfnStatuses[uCurrentOption]();
+    // }
+    pfnStatuses[uCurrentOption++]();
     pOption++;
-  } while(++uCurrentOption < OPTION_COUNT);
+  } while(uCurrentOption < OPTION_COUNT);
+  printLabelHighlighted(uSelectedOption, *(pOption+uSelectedOption));
 
   printText(p_szOptions[0], 68, 1);
   pfnStatuses[0]();
@@ -314,13 +303,13 @@ void printLabels(void) {
 
 void myTurnMotorOn(void) {
   fdc_TurnMotorOn();
-  uMotor = ON;
+  uMotor = MOTOR_ON;
 }
 
 
 void myTurnMotorOff(void) {
   fdc_TurnMotorOff();
-  uMotor = OFF;
+  uMotor = MOTOR_OFF;
 }
 
 
@@ -339,7 +328,7 @@ void checkAvailableDrives(void) {
 
 
 static void ActionMotor(void) {
-  if(uMotor == ON) {
+  if(uMotor == MOTOR_ON) {
     myTurnMotorOff();
   } else {
     myTurnMotorOn();
@@ -356,14 +345,16 @@ void calcRPMs(void) {
 
   ////fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
   // Calc the 0.5f and the 300 * 60  real
-  U16 dosUloops = uLoops << 1;
+  // U16 dosUloops = (U16)(uLoops << 1);
   firm_integer_to_real(1, g_realHalf);
   firm_integer_to_real(2, g_realLoops);
   firm_real_division(g_realHalf, g_realLoops);
   firm_integer_to_real(18000, g_realConstant18000);
 
-  firm_integer_to_real((U16) g_sTime, g_realTime);
-  firm_integer_to_real((U16) dosUloops, g_realLoops);
+  firm_integer_to_real(g_sTime, g_realTime);
+  // firm_integer_to_real(dosUloops, g_realLoops);
+  firm_integer_to_real((U16) (uLoops<<1), g_realLoops); // NOTE - firm_integer_to_real corrupts the first variable passed so do not use the uLoops variable straight there since it will change the value required for further calculations. The compiler creates a temp. variable when used this way.
+  // firm_integer_to_real(volatile (U16) uLoops, g_realLoops); // NOTE - firm_integer_to_real corrupts the first variable passed so do not use the uLoops variable straight there since it will change the value required for further calculations. The compiler creates a temp. variable when used this way.
 
   firm_real_multiplication(g_realLoops, g_realConstant18000);
   firm_real_division(g_realLoops, g_realTime);
@@ -430,7 +421,9 @@ void main(void) {
   checkAvailableDrives();
   fdc_SelectDrive(0, 0);
 
-  printWarning();
+  // printWarning();
+  printText("::: WARNING :::", 32, 16);
+  printText("USE IT AT YOUR OWN RISK", 28, 18);
   printLabels();
   
   //firm_set_palette_color(0, 0b0000001100000011);
@@ -479,7 +472,6 @@ void main(void) {
       } else if (OPT_SECTI == uSelectedOption) {
         U8 bMotorStatusAtEntry = uMotor;
         U8 bFound = false;
-        bSearchingSector = true;
 
         myTurnMotorOn();
 
@@ -487,10 +479,9 @@ void main(void) {
         fdc_GoToTrack(uTrack);
         fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
-        if (bMotorStatusAtEntry == OFF) {
+        if (bMotorStatusAtEntry == MOTOR_OFF) {
           myTurnMotorOff();
         }
-        bSearchingSector = false;
 
       } else if (OPT_RPM == uSelectedOption) {
         U8 bFound = false;
@@ -503,12 +494,10 @@ void main(void) {
           fdc_GoToTrack(uTrack);
           {
             U8 counter;
-            bSearchingSector = true;
             for(counter = 0, uFoundErrorSectorID = true; counter != 15 && uFoundErrorSectorID; counter++) {
               fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
             }
             bFound = counter == 15 ? true : false;
-            bSearchingSector = false;
           }
 
           uSectorID++;
@@ -522,10 +511,10 @@ void main(void) {
         printText("RUNNING!", 22, 5);
         fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
-        U16 uLoopsBck;
+        // U16 uLoopsBck;
         uLoops = 0;
         g_sTime = 0;
-        U8 uElapsedSeconds = 0;
+        uElapsedSeconds = 0;
         enable_my_int();
         do {
           // FindSector with a wrong sector ID will finish after 2 full rotations
@@ -534,12 +523,12 @@ void main(void) {
           uLoops++;
           
           if ((g_sTime / 600) > uElapsedSeconds) {
-            uLoopsBck=uLoops;
+            // uLoopsBck=uLoops;
             uElapsedSeconds+=2;
 
             //disable_my_int();
             calcRPMs();
-            uLoops=uLoopsBck;
+            // uLoops=uLoopsBck;
             //enable_my_int();
           }
 
