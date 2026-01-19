@@ -65,7 +65,7 @@ extern U8 uFoundErrorSectorID;
 extern U16 uRPMs;
 extern U8 uRPMsDec;
 extern U16 uLoops;
-extern U8 uElapsedSeconds;
+extern U16 uElapsedSeconds;
 extern U8 g_realLoops[5];
 extern U8 uMotor;
 extern U8 uDrive;
@@ -78,7 +78,6 @@ extern U8 g_uY;
 #define OPTION_COUNT 6
 extern const U8* p_szOptions[OPTION_COUNT];
 extern U8 uSelectedOption;
-extern U8 uPrevSelectedOption;
 
 #define OPT_DRIVE 0
 #define OPT_MOTOR 1
@@ -214,13 +213,13 @@ void printByte(U8 uByte, U8 x, U8 y) {
   printNum((U16) uByte, 10000);
 }
 
-static void printLabel(U8 yPos, const U8* pszLabel) {
+static void printLabel(const U8* pszLabel, U8 yPos) {
   printText(pszLabel, 1, yPos);
 }
 
-static void printLabelHighlighted(U8 yPos, const U8* pszLabel) {
+static void printLabelHighlighted(const U8* pszLabel, U8 yPos) {
   firm_set_inverse();
-  printLabel(yPos, pszLabel);
+  printLabel(pszLabel, yPos);
   firm_set_inverse();
 }
 
@@ -251,12 +250,12 @@ static void printStatusDrives(void) {
 }
 
 static void printStatusMotor(void) {
-  printText(uMotor ? " ON" : "OFF", 24, 1);
+  printText(uMotor ? " ON" : "OFF", 21, 2);
 }
 
 static void printStatusTrack(void) {
   // Current selected track
-  printByte(uTrack, 24, 2);
+  printByte(uTrack, 21, 3);
 }
 
 static void printStatusCalibrate(void) {
@@ -265,10 +264,50 @@ static void printStatusCalibrate(void) {
 
 static void printStatusSectorID(void) {
   // Current selected Sector ID and result
-  printByte(uSectorID, 24, 4);
-  printText(uFoundErrorSectorID ? "NO!" : "YES", 40, 4);
+  printByte(uSectorID, 21, 5);
+  printText(uFoundErrorSectorID ? "NO!" : "YES", 37, 5);
+}
+void printStatusRPMs(void) {
+  /*
+  float fRPMs;
+  fRPMs = (uLoops * 36000.0f) / (g_sTime * 1.0f);
+  uRPMs = fRPMs; // integer part of the division
+  uRPMsDec = (fRPMs - uRPMs) * 100.0f;
+  */
+
+  ////fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
+  // Calc the 0.5f and the 300 * 60  real
+  // U16 dosUloops = (U16)(uLoops << 1);
+  firm_integer_to_real(1, g_realHalf);
+  firm_integer_to_real(2, g_realLoops);
+  firm_real_division(g_realHalf, g_realLoops);
+  firm_integer_to_real(18000, g_realConstant18000);
+
+  firm_integer_to_real(g_sTime, g_realTime);
+  // firm_integer_to_real(dosUloops, g_realLoops);
+  firm_integer_to_real(uLoops, g_realLoops); // NOTE - firm_integer_to_real corrupts the first variable passed so do not use the uLoops variable straight there since it will change the value required for further calculations. The compiler creates a temp. variable when used this way.
+  // firm_integer_to_real(volatile (U16) uLoops, g_realLoops); // NOTE - firm_integer_to_real corrupts the first variable passed so do not use the uLoops variable straight there since it will change the value required for further calculations. The compiler creates a temp. variable when used this way.
+
+  firm_real_multiplication(g_realLoops, g_realConstant18000);
+  firm_real_division(g_realLoops, g_realTime);
+
+  firm_real_sub(g_realHalf, g_realLoops);  // subtract 0.5 since real_to_integer rounds up when decs. >= 0.5 or down when decs. < 0.5
+  uRPMs = firm_real_to_integer(g_realHalf);
+
+  firm_integer_to_real((U16)uRPMs, g_realTime);
+  firm_real_sub(g_realTime, g_realLoops);
+  firm_integer_to_real((U16)100, g_realLoops);
+  firm_real_multiplication(g_realTime, g_realLoops);
+  uRPMsDec = (U8) firm_real_to_integer(g_realTime);
+
+  // Print the current calculated RPMs
+  printByte(uRPMsDec, 36, 6);
+  printText(".", 38, 6);
+  printInt(uRPMs, 33, 6);
+  
 }
 
+// function pointer type
 typedef void (*pfnPrintStatus)(void);
 static const pfnPrintStatus pfnStatuses[OPTION_COUNT] = {
   printStatusDrives,
@@ -276,28 +315,16 @@ static const pfnPrintStatus pfnStatuses[OPTION_COUNT] = {
   printStatusTrack,
   printStatusCalibrate,
   printStatusSectorID,
-  printStatusCalibrate // This is a dummy to comply with one print status function for each option
+  printStatusRPMs // This is a dummy to comply with one print status function for each option
 };
-
 
 void printLabels(void) {
   U8 uCurrentOption = 0;
-  const U8** pOption = &p_szOptions[uCurrentOption];
-
   do {
-    // if (uCurrentOption == uSelectedOption){
-      // printLabelHighlighted(uCurrentOption, *pOption);
-    // } else {
-      printLabel(uCurrentOption, *pOption);
-    // }
-    pfnStatuses[uCurrentOption++]();
-    pOption++;
+    pfnStatuses[uCurrentOption]();
+    printLabel(p_szOptions[uCurrentOption++], uCurrentOption);
   } while(uCurrentOption < OPTION_COUNT);
-  printLabelHighlighted(uSelectedOption, *(pOption+uSelectedOption));
-
-  printText(p_szOptions[0], 68, 1);
-  pfnStatuses[0]();
-  printText("DskTest v1.0-RC1\nFrancisco Jos""\xA1""e <PACOMIX> S""\xA1""anchez - https://linkedin.com/in/pacomix", 1, 24);
+  printLabelHighlighted(p_szOptions[uSelectedOption], uSelectedOption+1);
 }
 
 
@@ -335,45 +362,6 @@ static void ActionMotor(void) {
   }
 }
 
-void calcRPMs(void) {
-  /*
-  float fRPMs;
-  fRPMs = (uLoops * 36000.0f) / (g_sTime * 1.0f);
-  uRPMs = fRPMs; // integer part of the division
-  uRPMsDec = (fRPMs - uRPMs) * 100.0f;
-  */
-
-  ////fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
-  // Calc the 0.5f and the 300 * 60  real
-  // U16 dosUloops = (U16)(uLoops << 1);
-  firm_integer_to_real(1, g_realHalf);
-  firm_integer_to_real(2, g_realLoops);
-  firm_real_division(g_realHalf, g_realLoops);
-  firm_integer_to_real(18000, g_realConstant18000);
-
-  firm_integer_to_real(g_sTime, g_realTime);
-  // firm_integer_to_real(dosUloops, g_realLoops);
-  firm_integer_to_real((U16) (uLoops<<1), g_realLoops); // NOTE - firm_integer_to_real corrupts the first variable passed so do not use the uLoops variable straight there since it will change the value required for further calculations. The compiler creates a temp. variable when used this way.
-  // firm_integer_to_real(volatile (U16) uLoops, g_realLoops); // NOTE - firm_integer_to_real corrupts the first variable passed so do not use the uLoops variable straight there since it will change the value required for further calculations. The compiler creates a temp. variable when used this way.
-
-  firm_real_multiplication(g_realLoops, g_realConstant18000);
-  firm_real_division(g_realLoops, g_realTime);
-
-  firm_real_sub(g_realHalf, g_realLoops);  // subtract 0.5 since real_to_integer rounds up when decs. >= 0.5 or down when decs. < 0.5
-  uRPMs = firm_real_to_integer(g_realHalf);
-
-  firm_integer_to_real((U16)uRPMs, g_realTime);
-  firm_real_sub(g_realTime, g_realLoops);
-  firm_integer_to_real((U16)100, g_realLoops);
-  firm_real_multiplication(g_realTime, g_realLoops);
-  uRPMsDec = (U8) firm_real_to_integer(g_realTime);
-
-  // Print the current calculated RPMs
-  printByte(uRPMsDec, 39, 5);
-  printText(".", 41, 5);
-  printInt(uRPMs, 36, 5);
-  
-}
 
 void main(void) {
   //float fGreat = 36000.0f;
@@ -424,21 +412,23 @@ void main(void) {
   // printWarning();
   printText("::: WARNING :::", 32, 16);
   printText("USE IT AT YOUR OWN RISK", 28, 18);
-  printLabels();
+  printText("DskTest v1.0-RC1\nFrancisco Jos""\xA1""e <PACOMIX> S""\xA1""anchez - https://linkedin.com/in/pacomix", 1, 24);
   
-  //firm_set_palette_color(0, 0b0000001100000011);
+  firm_set_palette_color(0, 0b0000001100000011);
   firm_set_palette_color(1, 0b0001100000011000);
+  // printLabels();
 
   do {
+    //printLabels use only this one and avoid the bottom ones. investigate why the screen scrolls...
+    printLabels();
     uKeyPressed = firm_get_key_wait();
 
     __asm HALT __endasm;
-    uPrevSelectedOption = uSelectedOption;
-    if (uKeyPressed == CHAR_CURSOR_UP) {
-      uSelectedOption -= uSelectedOption > 1 ? 1 : -(OPTION_COUNT-2);
+    if (uKeyPressed == CHAR_CURSOR_UP && uSelectedOption != 0) {
+      uSelectedOption -= 1;
 
-    } else if (uKeyPressed == CHAR_CURSOR_DOWN) {
-      uSelectedOption += uSelectedOption < OPTION_COUNT-1 ? 1 : -(OPTION_COUNT-2);
+    } else if (uKeyPressed == CHAR_CURSOR_DOWN && uSelectedOption < (OPTION_COUNT-1)) {
+      uSelectedOption += 1;
 
     } else if (uKeyPressed == CHAR_CURSOR_LEFT) {
 
@@ -485,7 +475,7 @@ void main(void) {
 
       } else if (OPT_RPM == uSelectedOption) {
         U8 bFound = false;
-        printText("STARTING", 22, 5);
+        printText("STARTING", 15, 6);
 
         myTurnMotorOn();
         myCalibrate();
@@ -508,28 +498,22 @@ void main(void) {
         pfnStatuses[OPT_SECTI]();
 
         // Start measuring
-        printText("RUNNING!", 22, 5);
+        printText("RUNNING!", 15, 6);
         fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
-        // U16 uLoopsBck;
         uLoops = 0;
         g_sTime = 0;
-        uElapsedSeconds = 0;
+        uElapsedSeconds = 600;
         enable_my_int();
         do {
           // FindSector with a wrong sector ID will finish after 2 full rotations
           // of the disc, so uLoops will end up having the number of rotations / 2.
           fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-          uLoops++;
+          uLoops += 2;
           
-          if ((g_sTime / 600) > uElapsedSeconds) {
-            // uLoopsBck=uLoops;
-            uElapsedSeconds+=2;
-
-            //disable_my_int();
-            calcRPMs();
-            // uLoops=uLoopsBck;
-            //enable_my_int();
+          if (g_sTime > uElapsedSeconds) {
+            uElapsedSeconds += 600;
+            printStatusRPMs();
           }
 
         } while(g_sTime <= 18000);
@@ -539,14 +523,9 @@ void main(void) {
 
         // Test 292 rpms
         //uLoops = 39;
-        calcRPMs();
+        printStatusRPMs();
       }
     }
-
-    printLabel(uPrevSelectedOption, p_szOptions[uPrevSelectedOption]);
-    pfnStatuses[uPrevSelectedOption]();
-    printLabelHighlighted(uSelectedOption, p_szOptions[uSelectedOption]);
-    pfnStatuses[uSelectedOption]();
 
     // TODO - funny - If we put the printStatus at the bottom the code increases +140 bytes
     //printStatus();

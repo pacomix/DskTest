@@ -30,43 +30,41 @@ __bootstrap::   ; Tag used by the build script to identify the load/entry point.
 ;;
 _old_int:: .dw #0x0000
 _uKeyPressed:: .db #0x00
-_uSelectedOption:: .db #0x01
-_uPrevSelectedOption:: .db #0x01
+_uSelectedOption:: .db #0x00
 _uTrack:: .db #0x10
 _uSectorID:: .db #0xC1
 _uFoundErrorSectorID:: .db #0x01
 _uMotor:: .db #0x00
 _uDrive:: .db #0x00
-_uRPMs:: .dw #0x012c
+_uRPMs:: .dw #0x0000
 _uRPMsDec:: .db #0x00
-_uLoops:: .dw #0x0000
-_uElapsedSeconds:: .db #0x00
+_uLoops:: .dw #0x0005
+_uElapsedSeconds:: .dw #0x0000
 _g_szBytes:: .db #0x00,#0x00,#0x00,#0x00,#0x00,#0x00
-_g_sTime:: .dw #0x0000
-_g_Keys:: .dw #0xFFFF
+_g_sTime:: .dw #0x012C
 _g_uX:: .db #0x00
 _g_uY:: .db #0x00
 _uDrives:: .db #0x00,#0x00
 
 _g_realTime:: .ds 5
 _g_realLoops:: .ds 5
-_g_realConstant18000:: .ds 5
-_g_realHalf:: .ds 5
+_g_realConstant18000:: .ds 5  ; TODO - precalc this one
+_g_realHalf:: .ds 5           ; TODO - precalc this one
 
-_szOption0:: .asciz "[6] DRIVE:"
-_szOption1:: .ascii "[1] TOGGLE MOTOR:  ("
+_szOption0:: .asciz "DRIVE:"
+_szOption1:: .ascii "TOGGLE MOTOR:  ("
              .db    #0xFF
              .asciz ")"
 
-_szOption2:: .ascii "[2] SEEK TRACK:    ("
+_szOption2:: .ascii "SEEK TRACK:    ("
              .db    #0xFF
              .asciz ")"
 
-_szOption3:: .asciz "[3] CALIBRATE"
-_szOption4:: .ascii "[4] FIND SEC. ID:  ("
+_szOption3:: .asciz "CALIBRATE"
+_szOption4:: .ascii "FIND SEC. ID:  ("
              .db    #0xFF
              .asciz ")\tFOUND:"
-_szOption5:: .asciz "[5] MEASURE SPIN:\t     RPMs"
+_szOption5:: .asciz "MEASURE SPIN:\t     RPMs"
 
 _p_szOptions:: .dw #_szOption0
                .dw #_szOption1
