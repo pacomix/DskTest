@@ -329,7 +329,6 @@ class Project:
     self._generateData()
     self._generateDsk()
 
-    self._generateReport()
 
     # We use always "current" as intermediates dir so it always generates the intermediates files
     # with the same exact content and here we keep the intermediate builds for keeping a history
@@ -338,6 +337,7 @@ class Project:
     self._setDirs(self._nextBuild)
     self._generateStatistics()
 
+    self._generateReport()
     self._launchDsk()
 
   def _clean(self):
@@ -883,47 +883,6 @@ class Project:
       fp.write('=======================================\n')
       fp.write('DETAILED COMPILATION REPORT:\n')
       fp.write('=======================================\n')
-      fp.write('\nGENERAL INFO:\n')
-      fp.write('\n[{:^20}]    [{:^5}] [{:^6}]\n'.format('FIELD', 'POS', 'DIFF'))
-      fp.write('----------------------------------------------------\n')
-
-      # Write code start and length and statistic if proceed.
-      output = "[%20s] => [%5i] [%6s]\n"
-      addr_boot = int(self._map_current['__bootstrap'])
-      addr_code = int(self._map_current['s__CODE'])
-
-      len_boot = int(self._map_current['l__BOOT0'])
-      len_code = int(self._map_current['l__CODE'])
-      len_code_total = len_code + len_boot
-
-      len_code_diff = 0
-      if self._map_past:
-        len_boot_past = int(self._map_past['l__BOOT0'])
-        len_code_past = int(self._map_past['l__CODE'])
-        len_code_past_total = len_code_past + len_boot_past
-        len_code_diff = len_code_total - len_code_past_total
-
-      fp.write(output % ('CODE START ADDRESS', addr_boot, ''))
-      fp.write(output % ('CODE END ADDRESS', int(self._map_current['e__CODE']), ''))
-      assert len_code + addr_code == addr_boot + len_boot + len_code, \
-        "[ERROR] Linked code location is not immediately after the __bootstrap section.\n"\
-        "Please review the build system since it must be automatically determined after " \
-        "assembling the crt0 bootstrap."
-      fp.write(output % \
-      ('CODE LENGTH', len_code_total, ("%+i" % (len_code_diff)) if len_code_diff != 0 else ''))
-
-      # Write data start and length and statistic if proceed.
-      addr_data = int(self._map_current['s__DATA'])
-      len_data = int(self._map_current['l__DATA'])
-
-      len_data_diff = 0
-      if self._map_past:
-        len_data_past = int(self._map_past['l__DATA'])
-        len_data_diff = len_data - len_data_past
-
-      fp.write(output % ('DATA START ADDRESS', addr_data, ''))
-      fp.write(output % ('DATA END ADDRESS', int(self._map_current['e__DATA']), ''))
-      fp.write(output % ('DATA LENGTH', len_data, ("%+i" % len_data_diff) if len_data_diff != 0 else ''))
 
       # Write the function information and statistic if proceed.
       # TODO - Unoptimal when comparing but we have the function sorted by their memory start
@@ -971,6 +930,48 @@ class Project:
               break
 
         fp.write(output % (_name, _len, ("%+i" % _len_diff) if _len_diff != 0 else ''))
+      
+      fp.write('\nGENERAL INFO:\n')
+      fp.write('\n[{:^20}]    [{:^5}] [{:^6}]\n'.format('FIELD', 'POS', 'DIFF'))
+      fp.write('----------------------------------------------------\n')
+
+      # Write code start and length and statistic if proceed.
+      output = "[%20s] => [%5i] [%6s]\n"
+      addr_boot = int(self._map_current['__bootstrap'])
+      addr_code = int(self._map_current['s__CODE'])
+
+      len_boot = int(self._map_current['l__BOOT0'])
+      len_code = int(self._map_current['l__CODE'])
+      len_code_total = len_code + len_boot
+
+      len_code_diff = 0
+      if self._map_past:
+        len_boot_past = int(self._map_past['l__BOOT0'])
+        len_code_past = int(self._map_past['l__CODE'])
+        len_code_past_total = len_code_past + len_boot_past
+        len_code_diff = len_code_total - len_code_past_total
+
+      fp.write(output % ('CODE START ADDRESS', addr_boot, ''))
+      fp.write(output % ('CODE END ADDRESS', int(self._map_current['e__CODE']), ''))
+      assert len_code + addr_code == addr_boot + len_boot + len_code, \
+        "[ERROR] Linked code location is not immediately after the __bootstrap section.\n"\
+        "Please review the build system since it must be automatically determined after " \
+        "assembling the crt0 bootstrap."
+      fp.write(output % \
+      ('CODE LENGTH', len_code_total, ("%+i" % (len_code_diff)) if len_code_diff != 0 else ''))
+
+      # Write data start and length and statistic if proceed.
+      addr_data = int(self._map_current['s__DATA'])
+      len_data = int(self._map_current['l__DATA'])
+
+      len_data_diff = 0
+      if self._map_past:
+        len_data_past = int(self._map_past['l__DATA'])
+        len_data_diff = len_data - len_data_past
+
+      fp.write(output % ('DATA START ADDRESS', addr_data, ''))
+      fp.write(output % ('DATA END ADDRESS', int(self._map_current['e__DATA']), ''))
+      fp.write(output % ('DATA LENGTH', len_data, ("%+i" % len_data_diff) if len_data_diff != 0 else ''))
 
     with open(REPORT_FILE_PATH, 'r') as fp:
       print ("\n%s\n" % fp.read())
