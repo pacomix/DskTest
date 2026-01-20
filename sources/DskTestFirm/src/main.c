@@ -140,9 +140,6 @@ void putchar(const char myChar) {
     g_uX = 1;
     g_uY += 1;
     firm_set_cursor_at(g_uX, g_uY);
-  //} else if(' ' == myChar) {
-  //  g_uX += 1;
-  //  firm_set_cursor_at_x(g_uX);
   } else if('\t' == myChar) {
     g_uX += 8;
     firm_set_cursor_at_x(g_uX);
@@ -157,20 +154,17 @@ void putchar(const char myChar) {
     //firm_put_char(myChar);
 
     if ('\x7e' == myChar || '\xa0' == myChar || '\xa1' == myChar || '\xa2' == myChar) {
-      //firm_set_cursor_at(g_uX, g_uY); // Move back the cursor.
       firm_set_cursor_at(g_uX, g_uY); // Move back the cursor.
       firm_set_blend(true);
     } else {
       firm_set_blend(false);
       g_uX += 1;
     }
-
   }
 }
 
 
 void printText(const U8* text, U8 x, U8 y) {
-  //firm_put_cursor_at(-g_uX, -g_uY);
   g_uX = x;
   g_uY = y;
   firm_set_cursor_at(g_uX, g_uY);
@@ -180,18 +174,12 @@ void printText(const U8* text, U8 x, U8 y) {
 }
 
 
-void printNum(U16 uByte, U16 uBase) {
+void printNum(U16 uNum, U16 uBase) {
   U8 uStrIdx = 0;
-  g_szBytes[0] = 0x20;
-  g_szBytes[1] = 0x20;
-  g_szBytes[2] = 0x20;
-  g_szBytes[3] = 0x20;
-  g_szBytes[4] = 0x20;
-  g_szBytes[5] = 0x20;
   do {
-    U8 uTemp = uByte / uBase;
+    U8 uTemp = uNum / uBase;
     g_szBytes[uStrIdx++] = uTemp + 0x30; // 0x30 - ASCII shift to make 0-9 a valid char
-    uByte -= uBase * uTemp;
+    uNum -= uBase * uTemp;
     uBase /= 10;
   } while(uBase != 0);
   g_szBytes[5] = '\0';
@@ -226,23 +214,21 @@ static void printLabelHighlighted(const U8* pszLabel, U8 yPos) {
 
 static void printStatusDrives(void) {
   { // Detected available drives
-    U8 uCounter;
-    U8 uStartDriveID = 65;
-    g_uX = 79;
+    U8 uCounter=0;
+    g_uX = 21;
     g_uY = 1;
     firm_set_cursor_at(g_uX, g_uY);
-    for(uCounter = 0; uCounter != MAX_DRIVES; uCounter++) {
+    do {
       if(uDrives[uCounter]) {
-        putchar(uStartDriveID);
+        putchar(uCounter + 65);
       }
-      uStartDriveID++;
-    }
+    } while(++uCounter != MAX_DRIVES);
+      
   }
 
   { // Current selected drive
-    g_uX = 79;
-    g_uY = 1;
-    firm_set_cursor_at(g_uX, g_uY);
+    g_uX = 21;
+    firm_set_cursor_at(g_uX+uDrive, g_uY);
     firm_set_inverse();
     putchar(65 + uDrive);
     firm_set_inverse();
@@ -331,12 +317,14 @@ void printLabels(void) {
 void myTurnMotorOn(void) {
   fdc_TurnMotorOn();
   uMotor = MOTOR_ON;
+  pfnStatuses[OPT_MOTOR]();
 }
 
 
 void myTurnMotorOff(void) {
   fdc_TurnMotorOff();
   uMotor = MOTOR_OFF;
+  pfnStatuses[OPT_MOTOR]();
 }
 
 
@@ -364,47 +352,11 @@ static void ActionMotor(void) {
 
 
 void main(void) {
-  //float fGreat = 36000.0f;
-  //float fDiv;
-  // Patch the interruption entry point so it jumps always to our interruption
-  // routine. See Z80 interruption documentation.
-  /*
-  __asm
-    di
-    push hl
-    ld hl,#_myInt
-    ld (#0x39),hl
-    pop hl
-    ei
-  __endasm;
-  */
-
-  //InitModeNoFirm(CPC_SCR_MODE);
-  //SetPaletteNoFirm(g_Palette);
-
-  // Keys
-  /*
-  g_tecla_0 = KEY_RETURN;
-  g_tecla_1 = KEY_1;  // Motor On
-  g_tecla_2 = KEY_2;  // Seek sector
-  g_tecla_3 = KEY_3;  // Calibrate
-  g_tecla_4 = KEY_4;  // Seek track
-  g_tecla_5 = KEY_5;  // Measure RPMs
-  g_tecla_6 = KEY_6;
-  g_tecla_7 = KEY_7;
-  g_tecla_8 = KEY_8;
-  g_tecla_9 = KEY_9;
-  g_tecla_10 = KEY_Q; // + track
-  g_tecla_11 = KEY_A; // - track
-  g_tecla_12 = KEY_P; // + SectorID
-  g_tecla_13 = KEY_O; // - SectorID
-  */
 
   firm_set_screen_mode(CPC_SCR_MODE);
   //firm_txt_vdu_enable();
   //firm_txt_reset();
   //firm_txt_init();
-
 
   checkAvailableDrives();
   fdc_SelectDrive(0, 0);
@@ -414,9 +366,8 @@ void main(void) {
   printText("USE IT AT YOUR OWN RISK", 28, 18);
   printText("DskTest v1.0-RC1\nFrancisco Jos""\xA1""e <PACOMIX> S""\xA1""anchez - https://linkedin.com/in/pacomix", 1, 24);
   
-  firm_set_palette_color(0, 0b0000001100000011);
-  firm_set_palette_color(1, 0b0001100000011000);
-  // printLabels();
+  // firm_set_palette_color(0, 0b0000001100000011);
+  // firm_set_palette_color(1, 0b0001100000011000);
 
   do {
     //printLabels use only this one and avoid the bottom ones. investigate why the screen scrolls...
