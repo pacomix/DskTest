@@ -22,15 +22,6 @@ typedef signed long int I32;
 #define MOTOR_OFF OFF
 #define MOTOR_ON ON
 
-//#include "Keyboard.h"
-//#include "firmware.h"
-//#include "firmware_fdc.h"
-#include "firm_keys.h"
-#include "firm_screen.h"
-#include "firm_math.h"
-#include "firm_text.h"
-#include "utils.inc"
-
 // Set the graphic mode
 // TODO - Implement and TEST functionality when loaded from a CPC464. Distribute TWO .dsks
 #define CPC_MODEL_6128
@@ -51,6 +42,17 @@ typedef signed long int I32;
 # else
 #   error Graphic mode not defined!!!
 #endif
+
+//#include "Keyboard.h"
+//#include "firmware.h"
+//#include "firmware_fdc.h"
+#include "firm_keys.h"
+#include "firm_screen.h"
+#include "firm_math.h"
+#include "firm_text.h"
+#include "utils.inc"
+
+
 
 extern U8 uKeyPressed;
 extern U8 g_szBytes[6];  // Temp buffer used to convert from integer/byte to ascii
@@ -260,7 +262,8 @@ void printStatusRPMs(void) {
   firm_integer_to_real(1, g_realHalf);
   firm_integer_to_real(2, g_realLoops);
   firm_real_division(g_realHalf, g_realLoops);
-  firm_integer_to_real(18000, g_realConstant18000);
+
+  firm_integer_to_real(36000, g_realConstant18000);
 
   firm_integer_to_real(g_sTime, g_realTime);
   firm_integer_to_real(uLoops, g_realLoops);
@@ -323,6 +326,7 @@ static void ToggleMotor(void) {
     myTurnMotorOn();
   }
 }
+
 
 
 void main(void) {
@@ -403,21 +407,25 @@ void main(void) {
 
         uLoops = 0;
         g_sTime = 0;
-        uElapsedSeconds = 600;
-        enable_my_int();
+        uElapsedSeconds = 300;
         do {
           // FindSector with a wrong sector ID will finish after 2 full rotations
           // of the disc, so uLoops will end up having the number of rotations / 2.
+          // Start with syncing the hole...
           fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-          uLoops += 2;
-          
+          // ...and start the measurement.
+          enable_my_int();
+          fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+          disable_my_int();
+          uLoops++;
+
+          // Print stats every second. The longer it runs the more accurate the measurement will be.
           if (g_sTime > uElapsedSeconds) {
-            uElapsedSeconds += 600;
+            uElapsedSeconds += 300;
             printStatusRPMs();
           }
 
         } while(g_sTime <= 18000);
-        disable_my_int();
 
         myTurnMotorOff();
 
