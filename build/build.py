@@ -877,6 +877,7 @@ class Project:
     """
     assert self._map_current, "[ERROR] Map with the current link information must exist!"
 
+    # TODO - Total code length is not correctly calculated. Size in disk differs from the one here outputted... it could be due to an incomplete .map file
     # Write the report.
     REPORT_FILE_PATH = os.path.join(self.DirObject, 'report.txt')
     with open(REPORT_FILE_PATH, 'w') as fp:

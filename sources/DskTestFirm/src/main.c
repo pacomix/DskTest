@@ -278,9 +278,9 @@ void printStatusRPMs(void) {
   uRPMsDec = (U8) firm_real_to_integer(g_realTime);
 
   // Print the current calculated RPMs
-  printByte(uRPMsDec, 36, POS_Y_STAT_RPM);
-  printText(".", 38, POS_Y_STAT_RPM);
-  printInt(uRPMs, 33, POS_Y_STAT_RPM);
+  printByte(uRPMsDec, 24, POS_Y_STAT_RPM);
+  printText(".", 26, POS_Y_STAT_RPM);
+  printInt(uRPMs, 21, POS_Y_STAT_RPM);
   
 }
 
@@ -336,9 +336,9 @@ void main(void) {
   fdc_SelectDrive(0, 0);
 
   // printWarning();
-  printText("::: WARNING :::", 32, 16);
-  printText("USE IT AT YOUR OWN RISK", 28, 18);
-  printText("DskTest v1.0-RC1\nFrancisco Jos""\xA1""e <PACOMIX> S""\xA1""anchez - https://linkedin.com/in/pacomix", 1, 24);
+  //printText("::: WARNING :::", 32, 16);
+  //printText("USE IT AT YOUR OWN RISK", 28, 18);
+  //printText("DskTest v1.0-RC1\nFrancisco Jos""\xA1""e <PACOMIX> S""\xA1""anchez - https://linkedin.com/in/pacomix", 1, 24);
   
   // firm_set_palette_color(0, 0b0000001100000011);
   // firm_set_palette_color(1, 0b0001100000011000);
@@ -385,7 +385,7 @@ void main(void) {
         fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
       } else if (OPT_RPM == uSelectedOption) {
-        printText("STARTING", 16, POS_Y_STAT_RPM);
+        printText("STARTING", 9, POS_Y_STAT_RPM);
         U8 counter;
         myTurnMotorOn();
         do { // Look for a missing address mark error track and sector
@@ -395,9 +395,10 @@ void main(void) {
             fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
           }
         } while(counter != 15);
+        printStatusSectorID();
 
         // Start measuring
-        printText("RUNNING!", 16, POS_Y_STAT_RPM);
+        printText("RUNNING!", 9, POS_Y_STAT_RPM);
         fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
         uLoops = 0;

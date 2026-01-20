@@ -53,18 +53,18 @@ _g_realHalf:: .ds 5           ; TODO - precalc this one
 
 ; TODO - reduce this to a simple big string with newlines and replace the highlight with an arrow char
 ;_szOption0:: .asciz " DRIVE:"
-;_szOption1:: .ascii " TOGGLE MOTOR:  ("
+;_szOption1:: .ascii " MOTOR:  ("
 ;             .db    #0xFF
 ;             .asciz ")"
 ;
-;_szOption2:: .ascii " SEEK TRACK:    ("
+;_szOption2:: .ascii " TRACK:    ("
 ;             .db    #0xFF
 ;             .asciz ")"
 ;
-;_szOption3:: .ascii " FIND SEC. ID:  ("
+;_szOption3:: .ascii " SEC. ID:  ("
 ;             .db    #0xFF
 ;             .asciz ")\tFOUND:"
-;_szOption4:: .asciz " MEASURE SPIN:\t     RPMs"
+;_szOption4:: .asciz " MEASURE SPIN:\tRPMs"
 ;
 ;_p_szOptions:: .dw #_szOption0
 ;               .dw #_szOption1
@@ -73,18 +73,18 @@ _g_realHalf:: .ds 5           ; TODO - precalc this one
 ;               .dw #_szOption4
 
 _szOptions::  .ascii " DRIVE:\n"
-                .ascii " TOGGLE MOTOR:  ("
+                .ascii " MOTOR:\t("
                 .db    #0xFF
                 .ascii ")\n"
 
-                .ascii " SEEK TRACK:    ("
+                .ascii " TRACK:\t("
                 .db    #0xFF
                 .ascii ")\n"
 
-                .ascii " FIND SEC. ID:  ("
+                .ascii " SECT.:\t("
                 .db    #0xFF
                 .ascii ")\tFOUND:\n"
-                .asciz " MEASURE SPIN:\t     RPMs"
+                .asciz " RPMs.:\t"
 
   init:
     call  #0xBCCB   ;; KL ROM WALK
