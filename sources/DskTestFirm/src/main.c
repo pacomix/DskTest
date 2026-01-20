@@ -284,22 +284,13 @@ void printStatusRPMs(void) {
   
 }
 
-// function pointer type
-typedef void (*pfnPrintStatus)(void);
-static const pfnPrintStatus pfnStatuses[OPTION_COUNT] = {
-  printStatusDrives,
-  printStatusMotor,
-  printStatusTrack,
-  printStatusSectorID,
-  printStatusRPMs
-};
 
 void printLabels(void) {
-  U8 uCurrentOption = 0;
-  do {
-    pfnStatuses[uCurrentOption]();
-    //printLabel(p_szOptions[uCurrentOption++], uCurrentOption);
-  } while(++uCurrentOption < OPTION_COUNT);
+  printStatusDrives();
+  printStatusMotor();
+  printStatusTrack();
+  printStatusSectorID();
+  
   printLabel(&szOptions, 1);
   printLabel(">", uSelectedOption+1);
 }
