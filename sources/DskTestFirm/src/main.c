@@ -75,16 +75,21 @@ extern U8 uDrives[MAX_DRIVES];
 extern U8 g_uX;
 extern U8 g_uY;
 
-#define OPTION_COUNT 6
-extern const U8* p_szOptions[OPTION_COUNT];
+#define OPTION_COUNT 5
+extern const U8 szOptions;
 extern U8 uSelectedOption;
 
 #define OPT_DRIVE 0
 #define OPT_MOTOR 1
 #define OPT_TRACK 2
-#define OPT_CALIB 3
-#define OPT_SECTI 4
-#define OPT_RPM   5
+#define OPT_SECTI 3
+#define OPT_RPM   4
+
+#define POS_Y_STAT_DRIVE 1
+#define POS_Y_STAT_MOTOR 2
+#define POS_Y_STAT_TRACK 3
+#define POS_Y_STAT_SECTI 4
+#define POS_Y_STAT_RPM   5
 
 // Our interruption function. It simply increments our timer.
 void myIntFunc(void) __naked {
@@ -205,19 +210,12 @@ static void printLabel(const U8* pszLabel, U8 yPos) {
   printText(pszLabel, 1, yPos);
 }
 
-static void printLabelHighlighted(const U8* pszLabel, U8 yPos) {
-  firm_set_inverse();
-  printLabel(pszLabel, yPos);
-  firm_set_inverse();
-}
-
 
 static void printStatusDrives(void) {
   { // Detected available drives
     U8 uCounter=0;
     g_uX = 21;
-    g_uY = 1;
-    firm_set_cursor_at(g_uX, g_uY);
+    firm_set_cursor_at(g_uX, POS_Y_STAT_DRIVE);
     do {
       if(uDrives[uCounter]) {
         putchar(uCounter + 65);
@@ -228,7 +226,7 @@ static void printStatusDrives(void) {
 
   { // Current selected drive
     g_uX = 21;
-    firm_set_cursor_at(g_uX+uDrive, g_uY);
+    firm_set_cursor_at(g_uX+uDrive, POS_Y_STAT_DRIVE);
     firm_set_inverse();
     putchar(65 + uDrive);
     firm_set_inverse();
@@ -236,22 +234,18 @@ static void printStatusDrives(void) {
 }
 
 static void printStatusMotor(void) {
-  printText(uMotor ? " ON" : "OFF", 21, 2);
+  printText(uMotor ? " ON" : "OFF", 21, POS_Y_STAT_MOTOR);
 }
 
 static void printStatusTrack(void) {
   // Current selected track
-  printByte(uTrack, 21, 3);
-}
-
-static void printStatusCalibrate(void) {
-
+  printByte(uTrack, 21, POS_Y_STAT_TRACK);
 }
 
 static void printStatusSectorID(void) {
   // Current selected Sector ID and result
-  printByte(uSectorID, 21, 5);
-  printText(uFoundErrorSectorID ? "NO!" : "YES", 37, 5);
+  printByte(uSectorID, 21, POS_Y_STAT_SECTI);
+  printText(uFoundErrorSectorID ? "NO!" : "YES", 37, POS_Y_STAT_SECTI);
 }
 void printStatusRPMs(void) {
   /*
@@ -263,16 +257,13 @@ void printStatusRPMs(void) {
 
   ////fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
   // Calc the 0.5f and the 300 * 60  real
-  // U16 dosUloops = (U16)(uLoops << 1);
   firm_integer_to_real(1, g_realHalf);
   firm_integer_to_real(2, g_realLoops);
   firm_real_division(g_realHalf, g_realLoops);
   firm_integer_to_real(18000, g_realConstant18000);
 
   firm_integer_to_real(g_sTime, g_realTime);
-  // firm_integer_to_real(dosUloops, g_realLoops);
-  firm_integer_to_real(uLoops, g_realLoops); // NOTE - firm_integer_to_real corrupts the first variable passed so do not use the uLoops variable straight there since it will change the value required for further calculations. The compiler creates a temp. variable when used this way.
-  // firm_integer_to_real(volatile (U16) uLoops, g_realLoops); // NOTE - firm_integer_to_real corrupts the first variable passed so do not use the uLoops variable straight there since it will change the value required for further calculations. The compiler creates a temp. variable when used this way.
+  firm_integer_to_real(uLoops, g_realLoops);
 
   firm_real_multiplication(g_realLoops, g_realConstant18000);
   firm_real_division(g_realLoops, g_realTime);
@@ -287,9 +278,9 @@ void printStatusRPMs(void) {
   uRPMsDec = (U8) firm_real_to_integer(g_realTime);
 
   // Print the current calculated RPMs
-  printByte(uRPMsDec, 36, 6);
-  printText(".", 38, 6);
-  printInt(uRPMs, 33, 6);
+  printByte(uRPMsDec, 36, POS_Y_STAT_RPM);
+  printText(".", 38, POS_Y_STAT_RPM);
+  printInt(uRPMs, 33, POS_Y_STAT_RPM);
   
 }
 
@@ -299,38 +290,30 @@ static const pfnPrintStatus pfnStatuses[OPTION_COUNT] = {
   printStatusDrives,
   printStatusMotor,
   printStatusTrack,
-  printStatusCalibrate,
   printStatusSectorID,
-  printStatusRPMs // This is a dummy to comply with one print status function for each option
+  printStatusRPMs
 };
 
 void printLabels(void) {
   U8 uCurrentOption = 0;
   do {
     pfnStatuses[uCurrentOption]();
-    printLabel(p_szOptions[uCurrentOption++], uCurrentOption);
-  } while(uCurrentOption < OPTION_COUNT);
-  printLabelHighlighted(p_szOptions[uSelectedOption], uSelectedOption+1);
+    //printLabel(p_szOptions[uCurrentOption++], uCurrentOption);
+  } while(++uCurrentOption < OPTION_COUNT);
+  printLabel(&szOptions, 1);
+  printLabel(">", uSelectedOption+1);
 }
 
 
 void myTurnMotorOn(void) {
   fdc_TurnMotorOn();
   uMotor = MOTOR_ON;
-  pfnStatuses[OPT_MOTOR]();
 }
 
 
 void myTurnMotorOff(void) {
   fdc_TurnMotorOff();
   uMotor = MOTOR_OFF;
-  pfnStatuses[OPT_MOTOR]();
-}
-
-
-void myCalibrate(void) {
-  fdc_Calibrate();
-  fdc_MotorWait();
 }
 
 
@@ -342,7 +325,7 @@ void checkAvailableDrives(void) {
 }
 
 
-static void ActionMotor(void) {
+static void ToggleMotor(void) {
   if(uMotor == MOTOR_ON) {
     myTurnMotorOff();
   } else {
@@ -402,54 +385,28 @@ void main(void) {
     } else if (uKeyPressed == CHAR_ENTER_BIG || uKeyPressed == CHAR_ENTER_SMALL || uKeyPressed == CHAR_COPY) {
 
       if (OPT_MOTOR == uSelectedOption) {
-        ActionMotor();
+        ToggleMotor();
 
       } else if (OPT_TRACK == uSelectedOption) {
         fdc_GoToTrack(uTrack);
 
-      } else if (OPT_CALIB == uSelectedOption) {
-        myCalibrate();
-
       } else if (OPT_SECTI == uSelectedOption) {
-        U8 bMotorStatusAtEntry = uMotor;
-        U8 bFound = false;
-
-        myTurnMotorOn();
-
-        myCalibrate();
-        fdc_GoToTrack(uTrack);
         fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
-        if (bMotorStatusAtEntry == MOTOR_OFF) {
-          myTurnMotorOff();
-        }
-
       } else if (OPT_RPM == uSelectedOption) {
-        U8 bFound = false;
-        printText("STARTING", 15, 6);
-
+        printText("STARTING", 16, POS_Y_STAT_RPM);
+        U8 counter;
         myTurnMotorOn();
-        myCalibrate();
-
         do { // Look for a missing address mark error track and sector
-          fdc_GoToTrack(uTrack);
-          {
-            U8 counter;
-            for(counter = 0, uFoundErrorSectorID = true; counter != 15 && uFoundErrorSectorID; counter++) {
-              fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-            }
-            bFound = counter == 15 ? true : false;
-          }
-
           uSectorID++;
-          pfnStatuses[OPT_SECTI]();
-        } while(bFound == false && uSectorID != 255);
-
-        uSectorID--;
-        pfnStatuses[OPT_SECTI]();
+          printStatusSectorID();
+          for(counter = 0, uFoundErrorSectorID = true; counter != 15 && uFoundErrorSectorID; counter++) {
+            fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+          }
+        } while(counter != 15);
 
         // Start measuring
-        printText("RUNNING!", 15, 6);
+        printText("RUNNING!", 16, POS_Y_STAT_RPM);
         fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
         uLoops = 0;
