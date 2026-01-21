@@ -42,8 +42,6 @@ _uLoops:: .dw #0x0005
 _uElapsedSeconds:: .dw #0x0000
 _g_szBytes:: .db #0x00,#0x00,#0x00,#0x00,#0x00,#0x00
 _g_sTime:: .dw #0x012C
-_g_uX:: .db #0x00
-_g_uY:: .db #0x00
 _uDrives:: .db #0x00,#0x00
 
 _g_realTime:: .ds 5
@@ -51,40 +49,54 @@ _g_realLoops:: .ds 5
 _g_realConstant18000:: .ds 5  ; TODO - precalc this one
 _g_realHalf:: .ds 5           ; TODO - precalc this one
 
-; TODO - reduce this to a simple big string with newlines and replace the highlight with an arrow char
-;_szOption0:: .asciz " DRIVE:"
-;_szOption1:: .ascii " MOTOR:  ("
-;             .db    #0xFF
-;             .asciz ")"
-;
-;_szOption2:: .ascii " TRACK:    ("
-;             .db    #0xFF
-;             .asciz ")"
-;
-;_szOption3:: .ascii " SEC. ID:  ("
-;             .db    #0xFF
-;             .asciz ")\tFOUND:"
-;_szOption4:: .asciz " MEASURE SPIN:\tRPMs"
-;
-;_p_szOptions:: .dw #_szOption0
-;               .dw #_szOption1
-;               .dw #_szOption2
-;               .dw #_szOption3
-;               .dw #_szOption4
+.macro  CHAR_ACCENT c1
+  .ascii c1
+  .db #0x08, #0x16, #0x01
+  .db #0xA1
+  .db #0x16, #0x02
+.endm
 
-_szOptions::  .ascii " DRIVE:\n"
-                .ascii " MOTOR:\t("
-                .db    #0xFF
-                .ascii ")\n"
+.macro CURSOR_AT x,y
+  .db #0x1F, x, y
+.endm
 
-                .ascii " TRACK:\t("
-                .db    #0xFF
-                .ascii ")\n"
+.macro CURSOR_RESET
+  .db #0x1E
+.endm
 
-                .ascii " SECT.:\t("
-                .db    #0xFF
-                .ascii ")\tFOUND:\n"
-                .asciz " RPMs.:\t"
+.macro ASCII_AT  x,y,txt
+  CURSOR_AT x, y
+  .ascii txt
+.endm
+
+.macro SCR_MODE x
+  .db #0x04, x
+.endm
+
+_szInfoMsg::  SCR_MODE 2
+              ASCII_AT 32, 16, ^|"::: WARNING :::"|
+              ASCII_AT 28, 18, ^|"USE IT AT YOUR OWN RISK"|
+
+              CURSOR_AT 1, 24
+              .ascii "DskTest v2.0-BETA 1\r\nFrancisco Jos"
+              CHAR_ACCENT ^|"e"|
+              .ascii " <PACOMIX> S"
+              CHAR_ACCENT ^|"a"|
+              .ascii "nchez - https://linkedin.com/in/pacomix"
+
+_szOptions::  CURSOR_RESET
+              .ascii  " DRIVE:\r\n"
+
+              .ascii  " MOTOR:\r\n"
+              .ascii  " TRACK:\r\n"
+
+              .ascii  " SECT.:"
+              ASCII_AT 28,4,^|"FOUND:\r\n"|
+
+              .ascii  " RPMs.:\t"
+
+              .asciz  ""
+
 
   init:
     call  #0xBCCB   ;; KL ROM WALK
