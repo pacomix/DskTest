@@ -74,11 +74,11 @@ extern U8 uDrive;
 
 #define MAX_DRIVES 2
 extern U8 uDrives[MAX_DRIVES];
-extern U8 g_uX;
-extern U8 g_uY;
 
 #define OPTION_COUNT 5
 extern const U8 szOptions;
+
+extern const U8 szInfoMsg;
 extern U8 uSelectedOption;
 
 #define OPT_DRIVE 0
@@ -92,6 +92,14 @@ extern U8 uSelectedOption;
 #define POS_Y_STAT_TRACK 3
 #define POS_Y_STAT_SECTI 4
 #define POS_Y_STAT_RPM   5
+
+#define POS_X_STAT_DRIVE 21
+#define POS_X_STAT_MOTOR 21
+#define POS_X_STAT_TRACK 21
+#define POS_X_STAT_SECTI 21
+#define POS_X_STAT_SECTI2 36
+#define POS_X_STAT_RPM   5
+
 
 // Our interruption function. It simply increments our timer.
 void myIntFunc(void) __naked {
@@ -142,41 +150,9 @@ __endasm;
 }
 
 
-void putchar(const char myChar) {
-  if('\n' == myChar) {
-    g_uX = 1;
-    g_uY += 1;
-    firm_set_cursor_at(g_uX, g_uY);
-  } else if('\t' == myChar) {
-    g_uX += 8;
-    firm_set_cursor_at_x(g_uX);
-  } else {
-    if ((g_uX+1) > CPC_SCR_CHARS_WIDTH) {
-      g_uX = 1;
-      g_uY += 1;
-    }
-    //firm_put_char_at(myChar, g_uY, g_uX);
-    firm_put_char_at_cursor(myChar);
-    //firm_put_char(myChar);
-    //firm_put_char(myChar);
-
-    if ('\x7e' == myChar || '\xa0' == myChar || '\xa1' == myChar || '\xa2' == myChar) {
-      firm_set_cursor_at(g_uX, g_uY); // Move back the cursor.
-      firm_set_blend(true);
-    } else {
-      firm_set_blend(false);
-      g_uX += 1;
-    }
-  }
-}
-
-
-void printText(const U8* text, U8 x, U8 y) {
-  g_uX = x;
-  g_uY = y;
-  firm_set_cursor_at(g_uX, g_uY);
+void printText(const U8* text) {
   do {
-    putchar(*text++);
+    firm_put_char(*text++);
   } while (*text != '\0');
 }
 
@@ -191,63 +167,50 @@ void printNum(U16 uNum, U16 uBase) {
   } while(uBase != 0);
   g_szBytes[5] = '\0';
 
-  printText(g_szBytes, g_uX, g_uY);
+  printText(g_szBytes);
 }
 
 
-void printInt(U16 uByte, U8 x, U8 y) {
-  g_uX = x;
-  g_uY = y;
+void printInt(U16 uByte) {
   printNum(uByte, 10000);
-}
-
-
-void printByte(U8 uByte, U8 x, U8 y) {
-  g_uX = x;
-  g_uY = y;
-  printNum((U16) uByte, 10000);
-}
-
-static void printLabel(const U8* pszLabel, U8 yPos) {
-  printText(pszLabel, 1, yPos);
 }
 
 
 static void printStatusDrives(void) {
   { // Detected available drives
     U8 uCounter=0;
-    g_uX = 21;
-    firm_set_cursor_at(g_uX, POS_Y_STAT_DRIVE);
+    firm_set_cursor_at(POS_X_STAT_DRIVE, POS_Y_STAT_DRIVE);
     do {
       if(uDrives[uCounter]) {
-        putchar(uCounter + 65);
+        firm_put_char(uCounter + 65);
       }
     } while(++uCounter != MAX_DRIVES);
       
   }
 
   { // Current selected drive
-    g_uX = 21;
-    firm_set_cursor_at(g_uX+uDrive, POS_Y_STAT_DRIVE);
+    firm_set_cursor_at(POS_X_STAT_DRIVE+uDrive, POS_Y_STAT_DRIVE);
     firm_set_inverse();
-    putchar(65 + uDrive);
+    firm_put_char(65 + uDrive);
     firm_set_inverse();
   }
 }
 
 static void printStatusMotor(void) {
-  printText(uMotor ? " ON" : "OFF", 21, POS_Y_STAT_MOTOR);
+  printText(uMotor ? "\x1F\x15\x2ON!" : "\x1F\x15\x2OFF");
 }
 
 static void printStatusTrack(void) {
   // Current selected track
-  printByte(uTrack, 21, POS_Y_STAT_TRACK);
+  firm_set_cursor_at(POS_X_STAT_TRACK, POS_Y_STAT_TRACK);
+  printInt((U16)uTrack);
 }
 
 static void printStatusSectorID(void) {
   // Current selected Sector ID and result
-  printByte(uSectorID, 21, POS_Y_STAT_SECTI);
-  printText(uFoundErrorSectorID ? "NO!" : "YES", 37, POS_Y_STAT_SECTI);
+  firm_set_cursor_at(POS_X_STAT_SECTI, POS_Y_STAT_SECTI);
+  printInt((U16)uSectorID);
+  printText(uFoundErrorSectorID ? "\x1F\x24\x04NO!" : "\x1F\x24\x04YES");
 }
 void printStatusRPMs(void) {
   /*
@@ -281,9 +244,11 @@ void printStatusRPMs(void) {
   uRPMsDec = (U8) firm_real_to_integer(g_realTime);
 
   // Print the current calculated RPMs
-  printByte(uRPMsDec, 24, POS_Y_STAT_RPM);
-  printText(".", 26, POS_Y_STAT_RPM);
-  printInt(uRPMs, 21, POS_Y_STAT_RPM);
+  firm_set_cursor_at(24, POS_Y_STAT_RPM);
+  printInt((U16)uRPMsDec);
+  printText("\x1F\x1A\x05.");
+  firm_set_cursor_at(21, POS_Y_STAT_RPM);
+  printInt(uRPMs);
   
 }
 
@@ -294,8 +259,9 @@ void printLabels(void) {
   printStatusTrack();
   printStatusSectorID();
   
-  printLabel(&szOptions, 1);
-  printLabel(">", uSelectedOption+1);
+  // printLabel(&szOptions, 1);
+  printText(&szOptions);
+  firm_set_cursor_at(1, uSelectedOption+1);  printText(">");
 }
 
 
@@ -331,191 +297,101 @@ static void ToggleMotor(void) {
 
 void main(void) {
 
-  firm_set_screen_mode(CPC_SCR_MODE);
-  //firm_txt_vdu_enable();
-  //firm_txt_reset();
-  //firm_txt_init();
-
   checkAvailableDrives();
   fdc_SelectDrive(0, 0);
-
-  // printWarning();
-  //printText("::: WARNING :::", 32, 16);
-  //printText("USE IT AT YOUR OWN RISK", 28, 18);
-  //printText("DskTest v1.0-RC1\nFrancisco Jos""\xA1""e <PACOMIX> S""\xA1""anchez - https://linkedin.com/in/pacomix", 1, 24);
   
   // firm_set_palette_color(0, 0b0000001100000011);
   // firm_set_palette_color(1, 0b0001100000011000);
 
-  do {
-    //printLabels use only this one and avoid the bottom ones. investigate why the screen scrolls...
-    printLabels();
-    uKeyPressed = firm_get_key_wait();
+  printText(&szInfoMsg);
+  printLabels();
+  
+  do {  // app loop
+    uKeyPressed = firm_read_key();
+    if (uKeyPressed) {
 
-    __asm HALT __endasm;
-    if (uKeyPressed == CHAR_CURSOR_UP && uSelectedOption != 0) {
-      uSelectedOption -= 1;
+      if (uKeyPressed == CHAR_CURSOR_UP && uSelectedOption != 0) {
+        uSelectedOption -= 1;
 
-    } else if (uKeyPressed == CHAR_CURSOR_DOWN && uSelectedOption < (OPTION_COUNT-1)) {
-      uSelectedOption += 1;
+      } else if (uKeyPressed == CHAR_CURSOR_DOWN && uSelectedOption < (OPTION_COUNT-1)) {
+        uSelectedOption += 1;
 
-    } else if (uKeyPressed == CHAR_CURSOR_LEFT) {
+      } else if (uKeyPressed == CHAR_CURSOR_LEFT) {
 
-      if (OPT_TRACK == uSelectedOption) {
-        uTrack -= uTrack > 0 ? 1 : 0;
-      } else if (OPT_SECTI == uSelectedOption) {
-        uSectorID -= uSectorID > 0 ? 1 : 0;
-      }
-
-    } else if (uKeyPressed == CHAR_CURSOR_RIGHT) {
-
-      if (OPT_TRACK == uSelectedOption) {
-        uTrack += uTrack < 41 ? 1 : 0;
-
-      } else if (OPT_SECTI == uSelectedOption) {
-        uSectorID += uSectorID < 255 ? 1 : 0;
-
-      }
-
-    } else if (uKeyPressed == CHAR_ENTER_BIG || uKeyPressed == CHAR_ENTER_SMALL || uKeyPressed == CHAR_COPY) {
-
-      if (OPT_MOTOR == uSelectedOption) {
-        ToggleMotor();
-
-      } else if (OPT_TRACK == uSelectedOption) {
-        fdc_GoToTrack(uTrack);
-
-      } else if (OPT_SECTI == uSelectedOption) {
-        fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-
-      } else if (OPT_RPM == uSelectedOption) {
-        printText("STARTING", 9, POS_Y_STAT_RPM);
-        U8 counter;
-        myTurnMotorOn();
-        do { // Look for a missing address mark error track and sector
-          uSectorID++;
-          printStatusSectorID();
-          for(counter = 0, uFoundErrorSectorID = true; counter != 15 && uFoundErrorSectorID; counter++) {
-            fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-          }
-        } while(counter != 15);
-        printStatusSectorID();
-
-        // Start measuring
-        printText("RUNNING!", 9, POS_Y_STAT_RPM);
-        fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-
-        uLoops = 0;
-        g_sTime = 0;
-        uElapsedSeconds = 300;
-        do {
-          // FindSector with a wrong sector ID will finish after 2 full rotations
-          // of the disc, so uLoops will end up having the number of rotations / 2.
-          // Start with syncing the hole...
-          fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-          // ...and start the measurement.
-          enable_my_int();
-          fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-          disable_my_int();
-          uLoops++;
-
-          // Print stats every second. The longer it runs the more accurate the measurement will be.
-          if (g_sTime > uElapsedSeconds) {
-            uElapsedSeconds += 300;
-            printStatusRPMs();
-          }
-
-        } while(g_sTime <= 18000);
-
-        myTurnMotorOff();
-
-        // Test 292 rpms
-        //uLoops = 39;
-        printStatusRPMs();
-      }
-    }
-
-    // TODO - funny - If we put the printStatus at the bottom the code increases +140 bytes
-    //printStatus();
-
-    // In/de crease track
-    /*
-
-    // Drive
-    if(!cpc_TestKeyF(6)) {
-      g_Keys |= FLAG_KEY_6;
-    } else if (FLAG_KEY_6 & g_Keys) {
-      g_Keys &= ~FLAG_KEY_6;
-
-      checkAvailableDrives();
-      do {
-        uDrive++;
-        if(MAX_DRIVES == uDrive) {
-          uDrive = 0;
+        if (OPT_TRACK == uSelectedOption) {
+          uTrack -= uTrack > 0 ? 1 : 0;
+        } else if (OPT_SECTI == uSelectedOption) {
+          uSectorID -= uSectorID > 0 ? 1 : 0;
         }
-      } while(0 == uDrives[uDrive]);
 
-      ConfigureFDC(uDrive, 0);
-    }
+      } else if (uKeyPressed == CHAR_CURSOR_RIGHT) {
 
-    // Measure RPMs
-    if(!cpc_TestKeyF(5)) {
-      g_Keys |= FLAG_KEY_5;
-    } else if (FLAG_KEY_5 & g_Keys) {
-      U8 bFound = 0;
-      g_Keys &= ~FLAG_KEY_5;
-      bMeasuring = 1;
+        if (OPT_TRACK == uSelectedOption) {
+          uTrack += uTrack < 41 ? 1 : 0;
 
-      myTurnMotorOn();
-      fdc_Calibrate();
+        } else if (OPT_SECTI == uSelectedOption) {
+          uSectorID += uSectorID < 255 ? 1 : 0;
 
-      // Look for a missing address mark error track and sector
-      do {
-        GoToTrack(uTrack);
-        {
+        }
+
+      } else if (uKeyPressed == CHAR_ENTER_BIG || uKeyPressed == CHAR_ENTER_SMALL || uKeyPressed == CHAR_COPY) {
+
+        if (OPT_MOTOR == uSelectedOption) {
+          ToggleMotor();
+
+        } else if (OPT_TRACK == uSelectedOption) {
+          fdc_GoToTrack(uTrack);
+
+        } else if (OPT_SECTI == uSelectedOption) {
+          fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+
+        } else if (OPT_RPM == uSelectedOption) {
+          printText("\x1F\x09\x05STARTING");
           U8 counter;
-          bSearchingSector = 1;
-          for(counter = 0, uFoundErrorSectorID = 1; 15 != counter && uFoundErrorSectorID; counter++) {
-            FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-          }
-          bFound = 15 == counter ? 1 : 0;
-          bSearchingSector = 0;
+          myTurnMotorOn();
+          do { // Look for a missing address mark error track and sector
+            uSectorID++;
+            printStatusSectorID();
+            for(counter = 0, uFoundErrorSectorID = true; counter != 15 && uFoundErrorSectorID; counter++) {
+              fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+            }
+          } while(counter != 15);
+          printStatusSectorID();
+
+          // Start measuring
+          printText("\x1F\x09\x05RUNNING!");
+
+          uLoops = 0;
+          g_sTime = 1;
+          uElapsedSeconds = 300;
+          do {
+            // FindSector with a wrong sector ID will finish after 2 full rotations
+            // of the disc, so uLoops will end up having the number of rotations / 2.
+            // Start with syncing the hole...
+            fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+            // ...and start the measurement.
+            enable_my_int();
+            fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+            disable_my_int();
+            uLoops++;
+
+            // Print stats every second. The longer it runs the more accurate the measurement will be.
+            if (g_sTime > uElapsedSeconds) {
+              uElapsedSeconds += 300;
+              printStatusRPMs();
+            }
+
+          } while(g_sTime <= 18000);
+
+          myTurnMotorOff();
+
+          // Test 292 rpms
+          //uLoops = 39;
+          printStatusRPMs();
         }
-
-        uSectorID++;
-        printStatus();
-      } while(!bFound && 255 != uSectorID);
-      uSectorID--;
-      printText("@@@@@@@@", 62, 40);
-      printText("RUNNING???", 62, 48);
-
-      // Start measuring
-      FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-
-      g_sTime = -6;
-      uLoops = 0;
-      do {
-        // FindSector with a wrong sector ID will finish after 2 full rotations
-        // of the disc, so uLoops will end up having the number of rotations / 2.
-        FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-        uLoops++;
-      } while(3000 >= g_sTime);
-
-      // We have now enough rotations accrued over time so let's calc the RPMs
-      __asm di __endasm; // Disable interrupts so we don't update anymore g_sTime
-      uLoops <<= 1;
-      {
-        float fRPMs = ((uLoops * 300) * 60.0f) / (g_sTime * 1.0f);
-        uRPMs = fRPMs; // integer part of the division
-        uRPMsDec = (fRPMs - uRPMs) * 100.0f;
       }
-      __asm ei __endasm;
-
-      bMeasuring = 0;
-      printText(":FINISHED:", 62, 48);
-      myTurnMotorOff();
-
-    }*/
+      printLabels();
+    }
   } while(true);
 }
 

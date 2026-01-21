@@ -16,3 +16,18 @@ __asm
   call KM_WAIT_KEY
 __endasm;
 }
+
+// TODO - SDCC no excluye este tipo de funciones definidas si no se usan... 
+// Conseguir esto compilando los ficheros como bibliotecas, y teoricamente el enlazador debe omitir las funciones no usadas.
+
+// Read key without waiting
+// Carry TRUE | A character
+#define KM_READ_KEY 0xBB18
+U8 firm_read_key(void) __sdcccall(1) {
+__asm
+  call KM_READ_KEY
+  jp c, firm_get_key_wait_end
+  xor a
+firm_get_key_wait_end:
+__endasm;
+}
