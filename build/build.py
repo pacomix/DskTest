@@ -9,7 +9,7 @@ import shutil
 import subprocess
 import threading
 
-MAX_ALLOCS_PER_NODE = 1000
+MAX_ALLOCS_PER_NODE = 1000000
 # VERSION_SDCC = "3.2.1-8124"
 # VERSION_SDCC = "3.3.0_win32"
 # VERSION_SDCC = "3.5.0_win32"
@@ -378,6 +378,7 @@ class Project:
           outFilename = os.path.splitext(file)[0] + '.rel'
           commandLine = command % (outFilename, file)
 
+          print ('Assemble command: ' + commandLine)
           subprocess.Popen(commandLine, shell=True, stdout=self._logger, stderr=self._logger, encoding='utf-8').wait()
           # Check everything went fine
           outFilenamePath = os.path.join(self.DirObject, outFilename)
