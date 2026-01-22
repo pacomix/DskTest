@@ -67,13 +67,10 @@ extern U8 uFoundErrorSectorID;
 extern U16 uRPMs;
 extern U8 uRPMsDec;
 extern U16 uLoops;
-extern U16 uElapsedSeconds;
+extern U16 uPartial;
 extern U8 g_realLoops[5];
 extern U8 uMotor;
 extern U8 uDrive;
-
-#define MAX_DRIVES 2
-extern U8 uDrives[MAX_DRIVES];
 
 #define OPTION_COUNT 5
 extern const U8 szOptions;
@@ -177,23 +174,9 @@ void printInt(U16 uByte) {
 
 
 static void printStatusDrives(void) {
-  { // Detected available drives
-    U8 uCounter=0;
-    firm_set_cursor_at(POS_X_STAT_DRIVE, POS_Y_STAT_DRIVE);
-    do {
-      if(uDrives[uCounter]) {
-        firm_put_char(uCounter + 65);
-      }
-    } while(++uCounter != MAX_DRIVES);
-      
-  }
-
-  { // Current selected drive
-    firm_set_cursor_at(POS_X_STAT_DRIVE+uDrive, POS_Y_STAT_DRIVE);
-    firm_set_inverse();
-    firm_put_char(65 + uDrive);
-    firm_set_inverse();
-  }
+  // Current selected drive
+  firm_set_cursor_at(POS_X_STAT_DRIVE, POS_Y_STAT_DRIVE);
+  firm_put_char(65 + uDrive);
 }
 
 static void printStatusMotor(void) {
@@ -276,20 +259,62 @@ void myTurnMotorOff(void) {
   uMotor = MOTOR_OFF;
 }
 
-
-void checkAvailableDrives(void) {
-  myTurnMotorOn();
-  uDrives[0] = fdc_DriveReady(0);
-  uDrives[1] = fdc_DriveReady(1);
-  myTurnMotorOff();
+static void ToggleMotor(void) {
+  uMotor ? myTurnMotorOff() : myTurnMotorOn();
 }
 
+void toggleDrives(void) {
+  // myTurnMotorOn();
+  fdc_TurnMotorOn();
 
-static void ToggleMotor(void) {
-  if(uMotor == MOTOR_ON) {
-    myTurnMotorOff();
-  } else {
-    myTurnMotorOn();
+  do {
+    uDrive = !uDrive;
+  } while(!fdc_DriveReady(uDrive));
+  fdc_SelectDrive(uDrive, 0);
+
+  if (!uMotor) {
+    fdc_TurnMotorOff();
+  }
+}
+
+static void startRPMs(void) {
+  U8 counter;
+  printText("\x1F\x09\x05STARTING");
+  myTurnMotorOn();
+  do { // Look for a missing address mark error track and sector
+    uSectorID++;
+    printStatusSectorID();
+    for(counter = 0, uFoundErrorSectorID = true; counter != 15 && uFoundErrorSectorID; counter++) {
+      fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+    }
+  } while(counter != 15);
+  printStatusSectorID();
+
+  // Start measuring
+  printText("\x1F\x09\x05RUNNING!");
+
+  uLoops = 0;
+  g_sTime = 1;  // Start measuring
+}
+
+static void measureRPMs(void) {
+  if (g_sTime != 0) {
+    // FindSector with a wrong sector ID will finish after 2 full rotations
+    // of the disc, so uLoops will end up having the number of rotations / 2.
+    // Start with syncing the hole...
+    fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+    // ...and start the measurement.
+    enable_my_int();
+    fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+    disable_my_int();
+    uLoops++;
+
+    // Print stats every TWO seconds.
+    if (g_sTime > 600) {
+      printStatusRPMs();
+      g_sTime = 1;
+      uLoops = 0;
+    }
   }
 }
 
@@ -297,8 +322,7 @@ static void ToggleMotor(void) {
 
 void main(void) {
 
-  checkAvailableDrives();
-  fdc_SelectDrive(0, 0);
+  toggleDrives();
   
   // firm_set_palette_color(0, 0b0000001100000011);
   // firm_set_palette_color(1, 0b0001100000011000);
@@ -335,9 +359,12 @@ void main(void) {
         }
 
       } else if (uKeyPressed == CHAR_ENTER_BIG || uKeyPressed == CHAR_ENTER_SMALL || uKeyPressed == CHAR_COPY) {
+        if (OPT_DRIVE == uSelectedOption) {
+          toggleDrives();
 
-        if (OPT_MOTOR == uSelectedOption) {
+        } else if (OPT_MOTOR == uSelectedOption) {
           ToggleMotor();
+          //uMotor ? myTurnMotorOff() : myTurnMotorOn(); Replacing this only call sums up 2 bytes
 
         } else if (OPT_TRACK == uSelectedOption) {
           fdc_GoToTrack(uTrack);
@@ -346,52 +373,13 @@ void main(void) {
           fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
         } else if (OPT_RPM == uSelectedOption) {
-          printText("\x1F\x09\x05STARTING");
-          U8 counter;
-          myTurnMotorOn();
-          do { // Look for a missing address mark error track and sector
-            uSectorID++;
-            printStatusSectorID();
-            for(counter = 0, uFoundErrorSectorID = true; counter != 15 && uFoundErrorSectorID; counter++) {
-              fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-            }
-          } while(counter != 15);
-          printStatusSectorID();
-
-          // Start measuring
-          printText("\x1F\x09\x05RUNNING!");
-
-          uLoops = 0;
-          g_sTime = 1;
-          uElapsedSeconds = 300;
-          do {
-            // FindSector with a wrong sector ID will finish after 2 full rotations
-            // of the disc, so uLoops will end up having the number of rotations / 2.
-            // Start with syncing the hole...
-            fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-            // ...and start the measurement.
-            enable_my_int();
-            fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-            disable_my_int();
-            uLoops++;
-
-            // Print stats every second. The longer it runs the more accurate the measurement will be.
-            if (g_sTime > uElapsedSeconds) {
-              uElapsedSeconds += 300;
-              printStatusRPMs();
-            }
-
-          } while(g_sTime <= 18000);
-
-          myTurnMotorOff();
-
-          // Test 292 rpms
-          //uLoops = 39;
-          printStatusRPMs();
+          startRPMs();
         }
       }
       printLabels();
     }
+
+    measureRPMs();
   } while(true);
 }
 
