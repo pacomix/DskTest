@@ -38,11 +38,10 @@ _uMotor:: .db #0x00
 _uDrive:: .db #0x00
 _uRPMs:: .dw #0x0000
 _uRPMsDec:: .db #0x00
-_uLoops:: .dw #0x0005
-_uElapsedSeconds:: .dw #0x0000
+_uLoops:: .dw #0x0000
+_uPartial:: .dw #0x0000
 _g_szBytes:: .db #0x00,#0x00,#0x00,#0x00,#0x00,#0x00
-_g_sTime:: .dw #0x012C
-_uDrives:: .db #0x00,#0x00
+_g_sTime:: .dw #0x0000
 
 _g_realTime:: .ds 5
 _g_realLoops:: .ds 5
