@@ -67,12 +67,13 @@ extern U8 uFoundErrorSectorID;
 extern U16 uRPMs;
 extern U8 uRPMsDec;
 extern U16 uLoops;
-extern U16 uPartial;
+extern U8 uPartialSecs;
+extern U16 uPartialInts;
 extern U8 g_realLoops[5];
 extern U8 uMotor;
 extern U8 uDrive;
 
-#define OPTION_COUNT 5
+#define OPTION_COUNT 6
 extern const U8 szOptions;
 
 extern const U8 szInfoMsg;
@@ -83,12 +84,14 @@ extern U8 uSelectedOption;
 #define OPT_TRACK 2
 #define OPT_SECTI 3
 #define OPT_RPM   4
+#define OPT_UPD   5
 
 #define POS_Y_STAT_DRIVE 1
 #define POS_Y_STAT_MOTOR 2
 #define POS_Y_STAT_TRACK 3
 #define POS_Y_STAT_SECTI 4
 #define POS_Y_STAT_RPM   5
+#define POS_Y_STAT_UPD   6
 
 #define POS_X_STAT_DRIVE 21
 #define POS_X_STAT_MOTOR 21
@@ -96,6 +99,7 @@ extern U8 uSelectedOption;
 #define POS_X_STAT_SECTI 21
 #define POS_X_STAT_SECTI2 36
 #define POS_X_STAT_RPM   5
+#define POS_X_STAT_UPD   21
 
 
 // Our interruption function. It simply increments our timer.
@@ -195,6 +199,11 @@ static void printStatusSectorID(void) {
   printInt((U16)uSectorID);
   printText(uFoundErrorSectorID ? "\x1F\x24\x04NO!" : "\x1F\x24\x04YES");
 }
+
+static void printStatusUpdSecs(void) {
+  firm_set_cursor_at(POS_X_STAT_UPD, POS_Y_STAT_UPD);
+  printInt((U16) uPartialSecs);
+}
 void printStatusRPMs(void) {
   /*
   float fRPMs;
@@ -241,6 +250,7 @@ void printLabels(void) {
   printStatusMotor();
   printStatusTrack();
   printStatusSectorID();
+  printStatusUpdSecs();
   
   // printLabel(&szOptions, 1);
   printText(&szOptions);
@@ -251,12 +261,22 @@ void printLabels(void) {
 void myTurnMotorOn(void) {
   fdc_TurnMotorOn();
   uMotor = MOTOR_ON;
+
+  if (uFoundErrorSectorID) {
+    g_sTime = 1;
+    uLoops = 0;
+    printText("\x1F\x09\x05RUNNING!");
+  }
 }
 
 
 void myTurnMotorOff(void) {
   fdc_TurnMotorOff();
   uMotor = MOTOR_OFF;
+  if (g_sTime != 0) {
+    printText("\x1F\x09\x05STOPPED!");
+    g_sTime = 0;
+  }
 }
 
 static void ToggleMotor(void) {
@@ -310,14 +330,13 @@ static void measureRPMs(void) {
     uLoops++;
 
     // Print stats every TWO seconds.
-    if (g_sTime > 600) {
+    if (g_sTime > (uPartialSecs * 150)) {
       printStatusRPMs();
       g_sTime = 1;
       uLoops = 0;
     }
   }
 }
-
 
 
 void main(void) {
@@ -341,21 +360,23 @@ void main(void) {
         uSelectedOption += 1;
 
       } else if (uKeyPressed == CHAR_CURSOR_LEFT) {
-
         if (OPT_TRACK == uSelectedOption) {
           uTrack -= uTrack > 0 ? 1 : 0;
         } else if (OPT_SECTI == uSelectedOption) {
           uSectorID -= uSectorID > 0 ? 1 : 0;
+        } else if (OPT_UPD == uSelectedOption) {
+          uPartialSecs -= 1;
+          uPartialInts -= 300;
         }
 
       } else if (uKeyPressed == CHAR_CURSOR_RIGHT) {
-
         if (OPT_TRACK == uSelectedOption) {
           uTrack += uTrack < 41 ? 1 : 0;
-
         } else if (OPT_SECTI == uSelectedOption) {
           uSectorID += uSectorID < 255 ? 1 : 0;
-
+        } else if (OPT_UPD == uSelectedOption) {
+          uPartialSecs += 1;
+          uPartialInts += 300;
         }
 
       } else if (uKeyPressed == CHAR_ENTER_BIG || uKeyPressed == CHAR_ENTER_SMALL || uKeyPressed == CHAR_COPY) {
@@ -374,6 +395,13 @@ void main(void) {
 
         } else if (OPT_RPM == uSelectedOption) {
           startRPMs();
+
+        } else if (OPT_UPD == uSelectedOption) {
+          if (g_sTime) {
+            g_sTime = 1;
+            uLoops = 0;
+            printStatusRPMs();
+          }
         }
       }
       printLabels();
