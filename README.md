@@ -1,3 +1,55 @@
+# DskTest (an Amstrad CPC disk drive tool)
+This tool is a native Amstrad CPC tool that can help to diagnose a faulty disk drive.
+
+Main purposes:
+* Measure disk drive RPMs.
+* Alignment of the motor.
+
+# Requirements
+Any Amstrad CPC with a working disk drive or cassette player to load the program.
+Unfortunately the latest releases don't work in a 464/664 machines yet.
+
+Head to the Releases section to download it.
+
+# Features
+* Disk drive selection.
+* Start/stop the disk drive motor.
+* Move head to track.
+* Search for a Sector ID.
+* Measure RPMs.
+
+# Instructions
+## Options
+### Drive
+Press Enter to discover and switch to the next available drive (A/B). Only two drives are supported.
+The switch can be activated even while measuring the RPMs in realtime.
+
+### Motor
+Press Enter to start/stop the motor of the selected drive.
+If a Sector ID wasn't found as a result of a previous search, the tool will start measuring RPMs. This is tipically the case when RPMs have been measuring and we stopped the motor intentionally, so activating it again will "resume" the measuring.
+
+### Track
+Moves the drive head to the currently selected track (0-41).
+
+Select the track with the left-right cursors and activate the functionality with Enter.
+
+### Sector
+Try to find a Sector ID in the current track with the specified value.
+
+Select the Sector ID with the left-right cursor keys and activate the functionality with Enter.
+
+### RPMs
+Measure the RPMs of the current selected drive. It turns the motor on, searches for an invalid Sector ID and it starts the process.
+
+The RPMs will be calculated every 2 seconds but that can be changed with the next option.
+
+Worth noting that you can move and change any of the available parameters during the measurement.
+
+### UpdSec
+This is the time in seconds where the RPM measurement takes place.
+
+A good value is between 2-8 seconds.
+
 # A bit of background
 The original code and the build pipeline (python 2.7 based) is more than 10 years old but it's been modified to work with Python 3.
 
@@ -9,16 +61,14 @@ But right at the moment I can only ensure it works out of the box with a MacOS c
 
 Some of the required tools like hex2bin were compiled years ago and put into the respective directories. Feel free to re-compile and/or source the binaries yourself if you don't trust the executables.
 
-Also mention that part of the FDC routines where highly influenced/adapted/integrated from the FDC Tools by Julien-nevo (Targhan) *BUT* the main routine that detects the rotational speed of the drive is entirely mine.
+Also mention that the FDC routines where highly influenced from the original FDC Tools code by Julien-nevo (Targhan) *BUT* the main routine that detects the rotational speed of the drive and all the other functionality are entirely mine.
 
-This version of the DskTest has never been released since the main intention was to bring the size down to 2KiB or less. It's a new rework of the tool using the Amstrad CPC Firmware (although it was writen 4 years ago) and I don't remember if I finally managed to correctly use Firmware routines that deals with floats and real number in the right way. In any case, I didn't have the possibility to use a real disc drive to test that part so it's not ensure the tool, as it is provided, is reliable.
+# Collaboration
+PLEASE FORK, TEST, MODIFY AND PROPOSE CHANGES TO THIS VERSION SO WE ALL CAN BENEFIT!!!
 
-All the unuseful stuff was scrapped from the code like graphic drawing routines and unuseful dependencies leaving the visual aspect like a "professional" tool :D
-
-PLEASE FORK, TEST AND MODIFY THIS VERSION SO WE ALL CAN BENEFIT!!!
-
-# Setup environment
-## MacOS
+# How to compile
+## Pre-requisites
+### MacOS
 If you would like to file the required tools by yourself you can follow the following procedure.
 Install Homebrew - The missing Package Manager for MacOS (or Linux). In a terminal window with superuser access or skip this step if you don't want to use it (there is a way also to not use brew here described as well):
 ```shell
@@ -59,8 +109,10 @@ pip install pygal
 ```shell
 ./build/Python3/bin/python3 -m pip install pygal
 ```
+### Windows
+TODO
 
-# How to compile
+## Compilation
 If you went the brew way you can straight type:
 ```shell
 python3 ./build/build.py ./sources/DskTestFirm
