@@ -1,16 +1,21 @@
 # This Python file uses the following encoding: utf-8
 import os
 
-ProjectName = 'DskTestF'
-IntermediatesDir = 'generated'
-TempDir = 'temp'
-OutputDir = 'image'
-ObjectDir = 'obj'
+ProjectName = 'DskTest'
+
+IntermediatesDir = './generated'
 SourcesDir = ['src']
 ResourcesDir = ['data']
-DskDir = 'dsk'
+
 IncDir = []
 LibDir = []
 LibLink = []
 
+# the below dir are create under IntermediatesDir
+TempDir = 'temp'
+OutputDir = 'media'
+ObjectDir = 'obj'
+DskDir = 'dsk'
+
+# Set the data start address for variables declared in our code.
 DataAddress = '0x6000'
