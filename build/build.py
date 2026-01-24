@@ -30,7 +30,7 @@ def showHowToUse():
   print ('')
   print ('\tbuild.py PATH_TO_PROJECT_ROOT')
   print ('')
-  print ('NOTE: The project root directory MUST contain a build.settings file (in UTF-8 encoding) containing:')
+  print ('NOTE: The root directory MUST contain a build.settings file (in UTF-8 encoding) containing:')
   print ('')
   print ('\tProjectName  - Executable name.')
   print ('\tIntermediatesDir    - Intermediates directory. The output, object, dsk and temp dir are calculated relative to this directory.')
@@ -1110,7 +1110,7 @@ def validatePaths():
   assert (os.path.isfile(EXOMIZER_EXE)), '\nExomizer not found under dir => [%s]' % EXOMIZER_EXE
   assert (os.path.isfile(HEX2BIN_EXE)), '\nhex2bin executable not found under => [%s]' % HEX2BIN_EXE
 
-importsFromProject(sys.argv[1])
+importsFromProject('.')
 #importsFromProject(os.path.join(SYSTEM_BUILD_DIR, 'Python27', 'Lib', 'site-packages'))
 importsFromProject(os.path.join(SYSTEM_BUILD_DIR, 'Python3', 'Lib', 'site-packages'))
 
@@ -1129,7 +1129,7 @@ if (len(sys.argv) > 3):
 
 configurePaths()
 validatePaths()
-prj = Project(sys.argv[1])
+prj = Project('.')
 prj.build()
 
 print ('\n\nAssembling, compilation, binary and dsk generation successful!\n\tGenerated dsk in: %s' % (prj._dskFilename))
