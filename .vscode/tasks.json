@@ -6,7 +6,7 @@
         {
             "label": "build",
             "type": "shell",
-            "command": "./build/Python3/bin/python3 ./build/build.py ./sources/DskTestFirm"
+            "command": "./build/Python3/bin/python3 ./build/build.py ./src"
         }
     ]
 }
