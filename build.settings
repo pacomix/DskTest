@@ -7,9 +7,9 @@ IntermediatesDir = './generated'
 SourcesDir = ['src']
 ResourcesDir = ['data']
 
-IncDir = []
-LibDir = []
-LibLink = []
+IncDir = ['./ThirdParty/cpc_firmware/inc']
+LibDir = ['./ThirdParty/cpc_firmware/lib']
+LibLink = ['cpc_firmware_6128.lib']
 
 # the below dir are create under IntermediatesDir
 TempDir = 'temp'
