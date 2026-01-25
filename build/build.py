@@ -447,6 +447,7 @@ class Project:
 
           assert not 'error: ' in (outputSdcc or outputErrSdcc), '\n\tERROR: Compilation unsuccesful! Check output!\n\nSTDOUT:\n%s\n\nSTDERR:\n%s\n\n' % (outputSdcc, outputErrSdcc)
           assert self.existFile(PARAMS['out_file']), '\n\tERROR: Compilation unsuccesful! Check output!\n\nSTDOUT:\n%s\n\nSTDERR:\n%s\n\n' % (outputSdcc, outputErrSdcc)
+          # TODO - Change this error detection for communicate.returncode
 
   def _link(self):
     if "3.2.1" in VERSION_SDCC:
@@ -495,10 +496,13 @@ class Project:
       finalCommand += fileCRT + fileCommands + libDirs + libsLink
 
       print ('Link command: ' + finalCommand)
-      subprocess.Popen(finalCommand, shell=True, stdout=self._logger, stderr=self._logger, encoding='utf-8').wait()
+      myLinkProc = subprocess.Popen(finalCommand, shell=True, stdout=self._logger, stderr=self._logger, encoding='utf-8')
+      myLinkProc.communicate()
 
-      if not self.existFile(PARAMS['out_file']):
-        raise Exception('\nOutput file was not generated. Compilation error!!!')
+      if not self.existFile(PARAMS['out_file']) or myLinkProc.returncode > 0:
+        raise Exception('\nOutput file was not generated or link errors!!!')
+
+      
 
   def _generateBinary(self):
 
