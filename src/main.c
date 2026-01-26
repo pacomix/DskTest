@@ -1,15 +1,14 @@
 ////////////////////////////////////////////////////////////////////////
 // main.c
-// Dsk Test - Small tool for aiding in diagnosing disk drive(s) problems.
+// DskTest - Small tool for aiding in diagnosing disk drive(s) problems.
 // Francisco José Sánchez (pacomix@hotmail.com)
 ////////////////////////////////////////////////////////////////////////
 #include "main.h"
 #include "firmware.h"
 
-#include "utils.inc"
+#include "fdc_funcs.inc"
 
-
-
+// Variables defined in crt0_cpc.s to avoid static initialization.
 extern U8 uKeyPressed;
 extern U8 g_szBytes[6];  // Temp buffer used to convert from integer/byte to ascii
 extern U16 g_sTime;  // Time variable. Contains amount of interruptions happened.

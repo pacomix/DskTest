@@ -1,76 +1,97 @@
+//
+// Wait until the fdc is ready to accept data
+//
+extern U8 FDCMOTOR;
+extern U8 FDCDRIVE;
+extern U8 FDCHEAD;
+extern U8 FDCIDDR;
 
-void _storage(U16* pIndexHoleCounter) __naked {
-  (void) pIndexHoleCounter;
+extern U8 ST0;
+extern U8 ST1;
+extern U8 ST2;
 
+void fdc_wait_ready_to_data(void) __naked {
 __asm
-  ;
-  ; Wait for the end of the current instruction (using ST0).
-  ;
-  WAITEND:
-    LD   A,#0b00001000
-    CALL PUTFDC
-    CALL GETFDC         ;Get ST0
-    LD   (ST0),A
-    CALL GETFDC
-    XOR  A
-    LD   (ST1),A        ;Reset ST1 and ST2
-    LD   (ST2),A
+  ex af,af'           ; 'Backup register a
+  LD   BC,#0xFB7E
 
-    ; Check if instruction is finished (Bit 5 of ST0)
-    LD   A,(ST0)
-    BIT  5,A            ;Instruction over ?
-    JR   Z,WAITEND
-  RET
+WAIT_DRIVE_READY_TO_DATA:
+  IN   A,(C)
+  JP   P,WAIT_DRIVE_READY_TO_DATA       ; Wait until drive is ready to accept data
 
+  ex af,af'           ; 'Recover register a
+  ret
 
-  ;
-  ; Send data to FDC
-  ;   A - data to send
-  ;
-  PUTFDC:
-    ex af,af'           ; 'Backup register a
-    LD   BC,#0xFB7E
+; Variables
+  _FDCMOTOR: .db #0      ; Motor status   (0-OFF 1-ON)
+  _FDCDRIVE: .db #0      ; Selected drive (0-3)
+  _FDCHEAD:  .db #0      ; Head used (0-1)
+  _FDCIDDR:  .db #0      ; Drive+Head | b0-1 - Drive number | b2 - Head number
 
-  PUTFD2:
-    IN   A,(C)
-    JP   P,PUTFD2       ; Wait until drive is ready to accept data
-
-    ex af,af'           ; 'Recover our data to be sent from register a
-    inc c
-    OUT  (C),A          ; Send the data
-    RET
-
-
-  ;
-  ; Get data from FDC
-  ;
-  ;   Returns
-  ;     A - data from FDC
-  ;
-  GETFDC:
-    LD   BC,#0xFB7E
-
-  GETFD2:
-    IN   A,(C)
-    JP   P,GETFD2       ; Wait until the FDC is ready to send the data
-
-    inc c
-    IN   A,(C)          ; Read the data
-    RET
-
-
-  ; Variables
-  FDCMOTOR: .db #0      ; Motor status   (0-OFF 1-ON)
-  FDCDRIVE: .db #0      ; Selected drive (0-3)
-  FDCHEAD:  .db #0      ; Head used (0-1)
-  FDCIDDR:  .db #0      ; Drive+Head | b0-1 - Drive number | b2 - Head number
-
-  ST0: .db #0           ; Buffer to store data sent back by the FDC
-  ST1: .db #0
-  ST2: .db #0
+  _ST0: .db #0           ; Buffer to store data sent back by the FDC
+  _ST1: .db #0
+  _ST2: .db #0
 __endasm;
 }
 
+//
+// Sends data to the FDC controller
+//
+// Register A - uData 
+//
+void fdc_sendData(U8 uData) {
+  (void) uData;
+  fdc_wait_ready_to_data();
+__asm
+  LD   BC,#0xFB7F
+  OUT  (C),A
+  ret
+__endasm;
+}
+
+//
+// Read data from the FDC controller
+//
+// Return Register A - data read from the fdc
+//
+U8 fdc_getData(void) {
+  fdc_wait_ready_to_data();
+__asm
+  LD   BC,#0xFB7F
+  IN   A, (C)
+  ret
+__endasm;
+}
+
+//
+// Wait until the end of the current command
+// being executed by the fdc (using _ST0)
+//
+void fdc_wait_command_to_finish(void) __naked {
+  // This could be translated to but does not work fine. TODO - refine it. Test it with the gototrack function
+  // do {
+  //   fdc_sendData(8);
+  //   ST0 = fdc_getData();
+  //   fdc_getData();
+  // } while(0 == (ST0 & 16));
+__asm
+  loop_fdc_wait_command_to_finish:
+    LD   A,#0b00001000        ; TODO - Check what is this command. Transform it to defined for better readability.
+    CALL _fdc_sendData
+    CALL _fdc_getData         ;Get ST0
+    LD   (_ST0),A
+    CALL _fdc_getData
+    XOR  A
+    LD   (_ST1),A        ;Reset ST1 and ST2 TODO - check if this is mandatory
+    LD   (_ST2),A
+
+    ; Check if instruction is finished (Bit 5 of ST0)
+    LD   A,(_ST0)
+    BIT  5,A            ;Instruction over ?
+    JR   Z,loop_fdc_wait_command_to_finish
+  RET
+__endasm;
+}
 
 //
 // Wait a bit - 180 interrupts - 0.6 seconds
@@ -108,7 +129,7 @@ __asm
   LD   BC,#0xFA7E
   XOR  A
   OUT  (C),A
-  call _fdc_MotorWait
+  ;call _fdc_MotorWait
 __endasm;
 }
 
@@ -116,45 +137,51 @@ __endasm;
 //
 // Moves the head to the specified track
 //
-void fdc_GoToTrack(U8 uTrack) { // REG a: uTrack
-  uTrack;
-__asm
-  PUSH AF
 
-  LD   A, #0b00001111
-  CALL PUTFDC         ; Send command to move the head? (TODO - Verify this and create proper defines)
-  LD   A, (FDCIDDR)
-  CALL PUTFDC         ; Tell the drive and head to use.
+void fdc_GoToTrack(U8 uTrack) { // Register A - uTrack
+  // (void) uTrack;
+  fdc_sendData(15);
+  fdc_sendData(FDCIDDR);
+  fdc_sendData(uTrack);
+  fdc_wait_command_to_finish();
 
-  POP  AF
-  CALL PUTFDC         ; Send the track parameter for the command
+// __asm
+//   PUSH AF
 
-  CALL WAITEND        ; Wait until the command is fully executed
-__endasm;
+//   LD   A, #0b00001111
+//   CALL _fdc_sendData         ; Send command to move the head? (TODO - Verify this and create proper defines)
+//   LD   A, (_FDCIDDR)
+//   CALL _fdc_sendData         ; Tell the drive and head to use.
+
+//   POP  AF
+//   CALL _fdc_sendData         ; Send the track parameter for the command
+
+//   CALL _fdc_wait_command_to_finish        ; Wait until the command is fully executed
+// __endasm;
 }
 
 
 //
 // Sets the drive and head to use for the commands.
 //
-// Reg a - drive (0-3)
-// Reg l - head (0-1)
+// Register A - drive (0-3)
+// Register L - head (0-1)
 //
-void fdc_SelectDrive(U8 uDrive, U8 uHead) { // REG a: uDrive REG l: uHead
+void fdc_SelectDrive(U8 uDrive, U8 uHead) {
   (void) uDrive;
   (void) uHead;
 
 __asm
   FDCVARS:
-    ld (FDCDRIVE),a
+    ld (_FDCDRIVE),a
     ld c,a
     ld a,l
-    ld (FDCHEAD),a
+    ld (_FDCHEAD),a
     rla
     rla
     and #0b00000100
     or c
-    ld (FDCIDDR),a
+    ld (_FDCIDDR),a
 __endasm;
 }
 
@@ -169,12 +196,12 @@ __asm
 
 Calibrate_Sub:
   LD    A,#0b00000111
-  CALL  PUTFDC          ; Command to move the head? (TODO - Verify this and create proper defines)
+  CALL _fdc_sendData          ; Command to move the head? (TODO - Verify this and create proper defines)
 
-  ld a, (FDCIDDR)
-  CALL  PUTFDC          ; send the the drive and head parameter to use for the command
+  ld a, (_FDCIDDR)
+  CALL _fdc_sendData          ; send the the drive and head parameter to use for the command
 
-  CALL  WAITEND
+  CALL _fdc_wait_command_to_finish
 
 Calibrate_END:
     ret
@@ -192,10 +219,10 @@ __asm
   push  af              ; Save uDrive (Reg a)
 
   ld    a,  #0b00000100
-  call  PUTFDC          ; Send Sense drive command
+  CALL _fdc_sendData          ; Send Sense drive command
 
   pop   af              ; Recover uDrive again
-  call  PUTFDC          ; and send the target drive parameter for the command.
+  CALL _fdc_sendData          ; and send the target drive parameter for the command.
 
   LD    BC, #0xFB7E     ; Master register port
 WAITCMDAV:
@@ -206,8 +233,8 @@ WAITCMDAV:
                         ; it is starting with the transfer or that the sector
                         ; was not found and we can start reading the results.
 
-  CALL  GETFDC          ; Read the result and put it in the ST1 variable and ret
-  LD    (ST1),  A
+  CALL _fdc_getData          ; Read the result and put it in the ST1 variable and ret
+  LD    (_ST1),  A
   AND   #0b00100000
 
 __endasm;
@@ -218,8 +245,8 @@ __endasm;
 // Moves the head to the specified track and try to find a sector with the
 // specified Sector ID.
 //
-// REG a: uSectorID
-// REG l: uTrack
+// Register A - uSectorID
+// Register L - uTrack
 // Stack: uFoundSectorID
 //
 void fdc_FindSector(U8 uSectorID, U8 uTrack, U8* uFoundSectorID) {
@@ -266,35 +293,35 @@ __asm
 
   ; Send the command plus the required parameters to the FDC
     LD    A,  #0b01000110  ; Send read sector command
-    CALL  PUTFDC
+    CALL _fdc_sendData
 
   ; Send the required parameters.
-    LD    A,  (FDCIDDR)   ; HU
-    CALL  PUTFDC
+    LD    A,  (_FDCIDDR)   ; HU
+    CALL _fdc_sendData
 
   RSPIST: ; Tag to modify the parameter of the LD A,#0 instruction below.
     LD    A,  #0          ; TR
-    CALL  PUTFDC
+    CALL _fdc_sendData
 
     XOR   A               ; HD  ; TODO - Give support for double headed drives.
-    CALL  PUTFDC
+    CALL _fdc_sendData
 
     POP   BC              ; SC
     LD    A,  B
     PUSH  AF
-    CALL  PUTFDC
+    CALL _fdc_sendData
 
     LD    A,  #2          ; SZ
-    CALL  PUTFDC
+    CALL _fdc_sendData
 
     POP   AF              ; LS
-    CALL  PUTFDC
+    CALL _fdc_sendData
 
     LD    A,  #0x52       ; GP
-    CALL  PUTFDC
+    CALL _fdc_sendData
 
     LD    A,  #0xFF       ; SL
-    CALL  PUTFDC
+    CALL _fdc_sendData
 
   ; Wait until command is processed by the FDC
   ; TODO consider to put this in the _storage function since it is used in more than one place.
@@ -320,23 +347,23 @@ __asm
   ; Retrieve the result bytes through the data register. We ignore most of the
   ; results since we do not need them.
   ; TODO - Add here the FDC info for the other values.
-    CALL  GETFDC
-    CALL  GETFDC
-    LD    (ST1), A        ; This is the result we are interested in.
+    CALL _fdc_getData
+    CALL _fdc_getData
+    LD    (_ST1), A        ; This is the result we are interested in.
                           ; Missing Addres Mark flag or SectorID not found.
                           ; Set after 2 index pulses if SectorID is not found.
-    CALL  GETFDC
-    CALL  GETFDC
-    CALL  GETFDC
-    CALL  GETFDC
-    CALL  GETFDC
+    CALL _fdc_getData
+    CALL _fdc_getData
+    CALL _fdc_getData
+    CALL _fdc_getData
+    CALL _fdc_getData
 
   ; Store the result in the function parameter.
   ; TODO - Consider changing this to use return registers instead.
     ld    l,  4 (IX)
     ld    h,  5 (IX)
 
-    LD    A,  (ST1)
+    LD    A,  (_ST1)
     AND   #0b00000101
 
     ;JR Z, #FindSector_FOUND
