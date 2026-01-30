@@ -112,6 +112,7 @@ class Project:
   DirIncludes = []
   DirLibs = []
   LinkLibs = []
+  FilePeepHole = ''
   _loadAddress = ''
   _startAddress = ''
   DataAddress = ''
@@ -157,7 +158,7 @@ class Project:
     filePy = os.path.join(self.DirPrj, os.path.splitext(os.path.basename(self.SettingsFile))[0] + 'Settings.py')
 
     shutil.copy(self.SettingsFile, filePy)
-    from buildSettings import IntermediatesDir, ProjectName, OutputDir, ObjectDir, TempDir, SourcesDir, ResourcesDir, DskDir, IncDir, LibDir, LibDir, LibLink, DataAddress
+    from buildSettings import IntermediatesDir, ProjectName, OutputDir, ObjectDir, TempDir, SourcesDir, ResourcesDir, DskDir, IncDir, LibDir, LibDir, LibLink, DataAddress, PeepHoleFile
     os.remove(filePy)
 
     self.DirIntermediates = self.getRealPath(os.path.join(IntermediatesDir, workdir))
@@ -172,6 +173,7 @@ class Project:
     self.DirLibs = self.getRealPath(ensureList(LibDir))
     self.LinkLibs = ensureList(LibLink)
     self.DataAddress = DataAddress
+    self.FilePeepHole = PeepHoleFile
     self._binFilename = os.path.join(self.DirOutput, self.Name) + '.bin'
     self._dskFilename = os.path.join(self.DirDsk, self.Name) + '.dsk'
     self._symFilename = os.path.join(self.DirObject, self.Name) + '.noi'
@@ -289,7 +291,7 @@ class Project:
     print ('\n\n= CHECKING PROJECT SETTINGS =')
     isProjectOk = self.existDir(self.DirOutput)    if isProjectOk  else False
     isProjectOk = self.existDir(self.DirSources)   if isProjectOk  else False
-    isProjectOk = self.existDir(self.DirResources)   if isProjectOk  else False
+    isProjectOk = self.existDir(self.DirResources) if isProjectOk  else False
     isProjectOk = self.existDir(self.DirIncludes)  if isProjectOk  else False
     isProjectOk = self.existDir(self.DirLibs)      if isProjectOk  else False
     isProjectOk = self.existDir(self.DirDsk)       if isProjectOk  else False
@@ -367,7 +369,7 @@ class Project:
     bMissingFiles = False;
     for srcDir in self.DirSources:
       filelist = os.listdir(srcDir)
-      command = ASM_EXEC + ' -o ' + os.path.join(self.DirObject, '%s') + ' ' + os.path.join(srcDir, '%s')
+      command = ASM_EXEC + ' -b -w -p -y -o ' + os.path.join(self.DirObject, '%s') + ' ' + os.path.join(srcDir, '%s')
 
       print ('\n= ASSEMBLING FILES =')
       print (' - Files:')
@@ -429,6 +431,9 @@ class Project:
       if self.existDir(incDir):
         COMMAND += '-I ' + incDir + ' '
 
+    if self.FilePeepHole != '':
+      COMMAND += ' --vc -Wa -p,-w -Wl -m,-w,-u,-p,-M,-I,-X --fverbose-asm -S --peep-asm --peep-file ' + self.FilePeepHole
+
     print ('\n= COMPILING =')
     print (' - Files:')
     for srcDir in self.DirSources:
@@ -474,6 +479,9 @@ class Project:
     for libDir in self.DirLibs:
       if self.existDir(libDir):
         libDirs += ' -L ' + libDir + ' '
+    
+    if self.FilePeepHole != '':
+      COMMAND += ' --vc -Wa -p,-w -Wl -m,-w,-u,-p,-M,-I,-X --fverbose-asm -S --peep-asm --peep-file ' + self.FilePeepHole
 
     print ('\n= LINKING =')
     print (' - Libraries:')
