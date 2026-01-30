@@ -1,0 +1,6 @@
+replace {
+  xor a, a
+} by {
+  xor a
+  xor a
+}

@@ -19,3 +19,7 @@ DskDir = 'dsk'
 
 # Set the data start address for variables declared in our code.
 DataAddress = '0x6000'
+
+# Specific compiler related.
+#PeepHoleFile = './build/sdcc/common/peep_hole_z80.def'
+PeepHoleFile = ''
