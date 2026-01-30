@@ -1,6 +1,9 @@
-//
-// Wait until the fdc is ready to accept data
-//
+// FDC u765 commands
+#define FDC_CMD_MOVE_TO_TRACK 0b00001111
+
+// FDC u7665 command result flags
+#define FDC_CMD_IS_OVER       0b00100000
+
 extern U8 FDCMOTOR;
 extern U8 FDCDRIVE;
 extern U8 FDCHEAD;
@@ -10,19 +13,43 @@ extern U8 ST0;
 extern U8 ST1;
 extern U8 ST2;
 
-void fdc_wait_ready_to_data(void) __naked {
+__sfr __banked __at(0xFA7E) fdc_motor_port;
+__sfr __banked __at(0xFB7E) fdc_master_register_port;
+__sfr __banked __at(0xFB7F) fdc_data_port;
+
+// Can not even use the below C code since it generates
+// a in a, (address) instruction that does not
+// change status flag register
+/* 
+#define DO_WHILE_PARITY(...) \
+  __asm ex af,af' ; Bakcup a' __endasm; \
+  __asm PARITY: __endasm; \
+  __VA_ARGS__; \
+  __asm JP P, PARITY __endasm; \
+  __asm ex af,af' ; get back backed up a' register __endasm;
+ */
+//
+// Wait until the fdc is ready to accept data
+// Can not write this as C code since there is no way
+// in C code to check for parity after reading the result
+// of a port.
+//
+void fdc_wait_ready_to_data(void) {
+
+  //DO_WHILE_PARITY(fdc_master_register_port);
+
 __asm
-  ex af,af'           ; 'Backup register a
-  LD   BC,#0xFB7E
+  LD   BC, #_fdc_master_register_port
 
 WAIT_DRIVE_READY_TO_DATA:
   IN   A,(C)
   JP   P,WAIT_DRIVE_READY_TO_DATA       ; Wait until drive is ready to accept data
 
-  ex af,af'           ; 'Recover register a
   ret
+__endasm;
 
-; Variables
+__asm 
+; Variables declared like this do not generate initialization code.
   _FDCMOTOR: .db #0      ; Motor status   (0-OFF 1-ON)
   _FDCDRIVE: .db #0      ; Selected drive (0-3)
   _FDCHEAD:  .db #0      ; Head used (0-1)
@@ -40,13 +67,8 @@ __endasm;
 // Register A - uData 
 //
 void fdc_sendData(U8 uData) {
-  (void) uData;
   fdc_wait_ready_to_data();
-__asm
-  LD   BC,#0xFB7F
-  OUT  (C),A
-  ret
-__endasm;
+  fdc_data_port = uData;
 }
 
 //
@@ -56,41 +78,40 @@ __endasm;
 //
 U8 fdc_getData(void) {
   fdc_wait_ready_to_data();
-__asm
-  LD   BC,#0xFB7F
-  IN   A, (C)
-  ret
-__endasm;
+  return fdc_data_port;
 }
 
 //
 // Wait until the end of the current command
 // being executed by the fdc (using _ST0)
 //
-void fdc_wait_command_to_finish(void) __naked {
-  // This could be translated to but does not work fine. TODO - refine it. Test it with the gototrack function
-  // do {
-  //   fdc_sendData(8);
-  //   ST0 = fdc_getData();
-  //   fdc_getData();
-  // } while(0 == (ST0 & 16));
-__asm
+void fdc_wait_command_to_finish(void) /* __naked */ {
+  // This could be translated to the below code but does not work fine.
+  // TODO - refine it. Test it with the gototrack function
+  do {
+    fdc_sendData(8);
+    ST0 = fdc_getData();
+    fdc_getData();
+    // ST1=0; TODO - For the serious FDC library get always all the results
+    // ST2=0;
+  } while(!(FDC_CMD_IS_OVER & ST0));
+/* __asm
   loop_fdc_wait_command_to_finish:
     LD   A,#0b00001000        ; TODO - Check what is this command. Transform it to defined for better readability.
     CALL _fdc_sendData
     CALL _fdc_getData         ;Get ST0
     LD   (_ST0),A
     CALL _fdc_getData
-    XOR  A
-    LD   (_ST1),A        ;Reset ST1 and ST2 TODO - check if this is mandatory
-    LD   (_ST2),A
+    ;XOR  A
+    ;LD   (_ST1),A        ;Reset ST1 and ST2 TODO - check if this is mandatory
+    ;LD   (_ST2),A
 
     ; Check if instruction is finished (Bit 5 of ST0)
     LD   A,(_ST0)
     BIT  5,A            ;Instruction over ?
     JR   Z,loop_fdc_wait_command_to_finish
   RET
-__endasm;
+__endasm; */
 }
 
 //
@@ -112,12 +133,16 @@ __endasm;
 // Waiting time is required to ensure the spin be constant.
 //
 void fdc_TurnMotorOn(void) {
+  fdc_motor_port = MOTOR_ON;
+  fdc_MotorWait();
+/* 
 __asm
   LD   BC,#0xFA7E
   LD   A,#1
   OUT  (C),A
   call _fdc_MotorWait
 __endasm;
+ */
 }
 
 
@@ -125,24 +150,25 @@ __endasm;
 // Turn FDC off.
 //
 void fdc_TurnMotorOff(void) {
+  fdc_motor_port = MOTOR_OFF;
+/*   
 __asm
   LD   BC,#0xFA7E
   XOR  A
   OUT  (C),A
-  ;call _fdc_MotorWait
 __endasm;
+ */
 }
 
 
 //
 // Moves the head to the specified track
 //
-
 void fdc_GoToTrack(U8 uTrack) { // Register A - uTrack
   // (void) uTrack;
-  fdc_sendData(15);
-  fdc_sendData(FDCIDDR);
-  fdc_sendData(uTrack);
+  fdc_sendData(FDC_CMD_MOVE_TO_TRACK);  // 0b00001111 CMD - Move head to track
+  fdc_sendData(FDCIDDR);                //                  Using this drive and head
+  fdc_sendData(uTrack);                 //                  To target track
   fdc_wait_command_to_finish();
 
 // __asm
@@ -164,25 +190,10 @@ void fdc_GoToTrack(U8 uTrack) { // Register A - uTrack
 //
 // Sets the drive and head to use for the commands.
 //
-// Register A - drive (0-3)
-// Register L - head (0-1)
-//
 void fdc_SelectDrive(U8 uDrive, U8 uHead) {
-  (void) uDrive;
-  (void) uHead;
-
-__asm
-  FDCVARS:
-    ld (_FDCDRIVE),a
-    ld c,a
-    ld a,l
-    ld (_FDCHEAD),a
-    rla
-    rla
-    and #0b00000100
-    or c
-    ld (_FDCIDDR),a
-__endasm;
+  FDCDRIVE = uDrive;
+  FDCHEAD = uHead;
+  FDCIDDR = (uHead << 2) | uDrive;  // Drive+Head | b0-1 - Drive number | b2 - Head number
 }
 
 //
@@ -224,7 +235,7 @@ __asm
   pop   af              ; Recover uDrive again
   CALL _fdc_sendData          ; and send the target drive parameter for the command.
 
-  LD    BC, #0xFB7E     ; Master register port
+  LD    BC, #_fdc_master_register_port     ; Master register port
 WAITCMDAV:
   IN    A,  (C)         ; Wait until the command is processed by the FDC
   AND   #0b10000000     ; Wait until the command phase is finished. That is when
@@ -256,6 +267,7 @@ void fdc_FindSector(U8 uSectorID, U8 uTrack, U8* uFoundSectorID) {
 
 __asm
   ; Saves the IX reg. since we use it to access the stack.
+
   push  ix
   ld    ix, #0
   add   ix, sp
@@ -325,16 +337,17 @@ __asm
 
   ; Wait until command is processed by the FDC
   ; TODO consider to put this in the _storage function since it is used in more than one place.
-    LD    BC, #0xFB7E     ; Master register port
+    LD    BC, #_fdc_master_register_port     ; Master register port
+  
   WAITCMDEND:
     IN    A,  (C)         ; Wait until the command is processed by the FDC
     AND   #0b10000000     ; Wait until the command phase is finished. That is when the drive is ready to send us data.
     JR    Z,  #WAITCMDEND ; NOTE: That could mean that the sector id was found and it is starting with the transfer or
                           ; that the sector was not found and we can start
                           ; reading the results.
-
   ; At this point the FDC has processed the command and started executing it.
   ; Now we wait until the execution phase is finished
+  
   WAITEXEEND:
     IN    A,  (C)
     AND   #0b00100000     ; At this point if the sector does exist it will read
