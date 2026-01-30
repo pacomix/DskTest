@@ -228,7 +228,7 @@ void myTurnMotorOn(void) {
 void myTurnMotorOff(void) {
   fdc_TurnMotorOff();
   uMotor = MOTOR_OFF;
-  if (g_sTime != 0) {
+  if (g_sTime) {
     printText("\x1F\x09\x05STOPPED!");
     g_sTime = 0;
   }
@@ -273,19 +273,21 @@ static void startRPMs(void) {
 }
 
 static void measureRPMs(void) {
-  if (g_sTime != 0) {
+  if (g_sTime) {
     // FindSector with a wrong sector ID will finish after 2 full rotations
     // of the disc, so uLoops will end up having the number of rotations / 2.
     // Start with syncing the hole...
     fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
     // ...and start the measurement.
+
     enable_my_int();
-    fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+    fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);    
     disable_my_int();
     uLoops++;
 
     // Print stats every TWO seconds.
     if (g_sTime > (uPartialSecs * 150)) {
+      g_sTime--;
       printStatusRPMs();
       g_sTime = 1;
       uLoops = 0;
@@ -340,7 +342,6 @@ void main(void) {
 
         } else if (OPT_MOTOR == uSelectedOption) {
           ToggleMotor();
-          //uMotor ? myTurnMotorOff() : myTurnMotorOn(); Replacing this only call sums up 2 bytes
 
         } else if (OPT_TRACK == uSelectedOption) {
           fdc_GoToTrack(uTrack);
@@ -349,7 +350,11 @@ void main(void) {
           fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
 
         } else if (OPT_RPM == uSelectedOption) {
-          startRPMs();
+          if (!g_sTime) {
+            startRPMs();
+          } else {
+            ToggleMotor();
+          }
 
         } else if (OPT_UPD == uSelectedOption) {
           if (g_sTime) {
