@@ -74,7 +74,7 @@ _szInfoMsg::  SCR_MODE 2
               ASCII_AT 28, 18, ^|"USE IT AT YOUR OWN RISK"|
 
               CURSOR_AT 1, 24
-              .ascii "DskTest v2.0-RC1\r\nFrancisco Jos"
+              .ascii "DskTest v2.0-RC3\r\nFrancisco Jos"
               CHAR_ACCENT ^|"e"|
               .ascii " <PACOMIX> S"
               CHAR_ACCENT ^|"a"|
