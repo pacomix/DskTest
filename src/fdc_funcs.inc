@@ -6,12 +6,8 @@
 #define FDC_CMD_READ_SECTOR             0b01000110
 
 
-// FDC u7665 command result flags
-#define FDC_CMD_IS_OVER       0b00100000
+/* FDC u765 Register flags */
 
-//
-// FDC u765 Register flags
-//
 // FDC u7665 master port flags
 #define FDC_REG_MASTER_READY_TO_SEND_RECEIVE           0b10000000
 #define FDC_REG_MASTER_READY_TO_SEND                   0b01000000
@@ -82,8 +78,9 @@ __sfr __banked __at(0xFA7E) fdc_motor_port;
 __sfr __banked __at(0xFB7E) fdc_master_register_port;
 __sfr __banked __at(0xFB7F) fdc_data_port;
 
-extern U8 FDCMOTOR;
-extern U8 FDCDRIVE;
+extern U8 g_u8MotorOn;
+extern U8 g_u8DriveSelection;
+extern U8 g_u8TrackSelection;
 extern U8 FDCHEAD;
 extern U8 FDCIDDR;
 
@@ -98,8 +95,9 @@ extern U8 ST3;
 //
 void fdc_variables(void) __naked {
 __asm
-  _FDCMOTOR: .db #0     ; Motor status   (0-OFF 1-ON)
-  _FDCDRIVE: .db #0     ; Selected drive (0-3)
+  _g_u8MotorOn: .db #0     ; Motor status   (0-OFF 1-ON)
+  _g_u8DriveSelection: .db #0     ; Selected drive (0-3)
+  _g_u8TrackSelection: .db #0     ; Selected track
   _FDCHEAD:  .db #0     ; Head used (0-1)
   _FDCIDDR:  .db #0     ; 0b00000 Head Drive | b2 - Head number | b0-1 - Drive number |
                         ;           X    XX
@@ -169,12 +167,12 @@ U8 fdc_getData(void) {
 // result in ST0 and leave it up to the programmer
 // what to do with the result.
 //
-void fdc_wait_command_to_finish(void) /* __naked */ {
+void fdc_wait_seek_command_to_finish(void) /* __naked */ {
   do {
     fdc_sendData(FDC_CMD_SENSE_INTERRUPT_STATUS);
     ST0 = fdc_getData();
     fdc_getData(); //Track position
-  } while(!(FDC_CMD_IS_OVER & ST0));
+  } while(!(FDC_REG_ST0_END_SEEK & ST0));
 }
 
 //
@@ -196,7 +194,7 @@ __endasm;
 // Waiting time is required to ensure the spin be constant.
 //
 void fdc_TurnMotorOn(void) {
-  fdc_motor_port = MOTOR_ON;
+  fdc_motor_port = g_u8MotorOn = MOTOR_ON;
   fdc_MotorWait();
 }
 
@@ -205,7 +203,12 @@ void fdc_TurnMotorOn(void) {
 // Turn FDC motor off.
 //
 void fdc_TurnMotorOff(void) {
-  fdc_motor_port = MOTOR_OFF;
+  fdc_motor_port = g_u8MotorOn = MOTOR_OFF;
+}
+
+
+static void fdc_toggleMotor(void) {
+  g_u8MotorOn ? fdc_TurnMotorOff() : fdc_TurnMotorOn();
 }
 
 //
@@ -215,7 +218,7 @@ void fdc_TurnMotorOff(void) {
 void fdc_Calibrate(void) /* __naked */ {
   fdc_sendData(FDC_CMD_RECALIBRATE);
   fdc_sendData(FDCIDDR);
-  fdc_wait_command_to_finish();
+  fdc_wait_seek_command_to_finish();
   fdc_MotorWait();
 }
 
@@ -224,11 +227,12 @@ void fdc_Calibrate(void) /* __naked */ {
 // Moves the head to the specified track
 //
 void fdc_GoToTrack(U8 uTrack) {
+  g_u8TrackSelection = uTrack;
   fdc_Calibrate();
   fdc_sendData(FDC_CMD_SEEK);
     fdc_sendData(FDCIDDR);
     fdc_sendData(uTrack);
-  fdc_wait_command_to_finish();
+  fdc_wait_seek_command_to_finish();
 }
 
 
@@ -237,17 +241,19 @@ void fdc_GoToTrack(U8 uTrack) {
 // FDC commands.
 //
 void fdc_SelectDrive(U8 uDrive, U8 uHead) {
-  FDCDRIVE = uDrive;
+  g_u8DriveSelection = uDrive;
   FDCHEAD = uHead;
   FDCIDDR = (uHead << 2) | uDrive;  // Drive+Head | b0-1 - Drive number | b2 - Head number
 }
 
+
+
 //
 // Retrieve the ST3 status register.
 //
-U8 fdc_get_drive_status(U8 uDrive) {
+U8 fdc_get_drive_status(void) {
   fdc_sendData(FDC_CMD_SENSE_DRIVE_STATUS);
-    fdc_sendData(uDrive);
+    fdc_sendData(g_u8DriveSelection);
   
   fdc_wait_ready_to_send_receive_data();
   ST3 = fdc_getData();
@@ -261,8 +267,22 @@ U8 fdc_get_drive_status(U8 uDrive) {
 // that means, the drive is on and with an
 // inserted disc on it ready to operate.
 //
-bool fdc_DriveReady(U8 uDrive) {
-  return FDC_REG_ST3_READY & fdc_get_drive_status(uDrive);
+bool fdc_DriveReady(void) {
+  return FDC_REG_ST3_READY & fdc_get_drive_status();
+}
+
+
+void fdc_toggleDrives(void) {
+  U8 u8MotorOn = g_u8MotorOn;
+  fdc_TurnMotorOn();
+
+  do {
+    fdc_SelectDrive(!g_u8DriveSelection, 0);
+  } while(!fdc_DriveReady());
+
+  if (!u8MotorOn) {
+    fdc_TurnMotorOff();
+  }
 }
 
 
@@ -270,12 +290,13 @@ bool fdc_DriveReady(U8 uDrive) {
 // Moves the head to the specified track and try
 // to find a sector with the specified Sector ID.
 //
-void fdc_FindSector(U8 uSectorID, U8 uTrack, U8* uFoundSectorID) {
+bool fdc_FindSector(U8 uSectorID) {
+  fdc_GoToTrack(g_u8TrackSelection);
   // START - Command
   fdc_sendData(FDC_CMD_READ_SECTOR);
   // Command parameters
     fdc_sendData(FDCIDDR);
-    fdc_sendData(uTrack);
+    fdc_sendData(g_u8TrackSelection);
     fdc_sendData(FDCHEAD);
     fdc_sendData(uSectorID);
     fdc_sendData(0x02);
@@ -312,5 +333,5 @@ void fdc_FindSector(U8 uSectorID, U8 uTrack, U8* uFoundSectorID) {
   fdc_getData();
 
   // Set to true/false if the sector was found.
-  *uFoundSectorID = ST1 & (FDC_REG_ST1_SECTOR_NOT_FOUND | FDC_REG_ST1_NO_ADDRESS_MARK);
+  return ST1 & (FDC_REG_ST1_SECTOR_NOT_FOUND | FDC_REG_ST1_NO_ADDRESS_MARK);
 }
