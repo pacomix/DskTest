@@ -25,8 +25,8 @@ extern U16 uLoops;
 extern U8 uPartialSecs;
 extern U16 uPartialInts;
 extern U8 g_realLoops[5];
-extern U8 uMotor;
-extern U8 uDrive;
+// extern U8 uMotor;
+// extern U8 uDrive;
 
 #define OPTION_COUNT 6
 extern const U8 szOptions;
@@ -135,11 +135,11 @@ void printInt(U16 uByte) {
 static void printStatusDrives(void) {
   // Current selected drive
   firm_set_cursor_at(POS_X_STAT_DRIVE, POS_Y_STAT_DRIVE);
-  firm_put_char(65 + uDrive);
+  firm_put_char(65 + g_u8DriveSelection);
 }
 
 static void printStatusMotor(void) {
-  printText(uMotor ? "\x1F\x15\x2ON!" : "\x1F\x15\x2OFF");
+  printText(g_u8MotorOn ? "\x1F\x15\x2ON!" : "\x1F\x15\x2OFF");
 }
 
 static void printStatusTrack(void) {
@@ -213,60 +213,23 @@ void printLabels(void) {
 }
 
 
-void myTurnMotorOn(void) {
-  fdc_TurnMotorOn();
-  uMotor = MOTOR_ON;
-
-  if (uFoundErrorSectorID) {
-    g_sTime = 1;
-    uLoops = 0;
-    printText("\x1F\x09\x05RUNNING!");
-  }
-}
-
-
-void myTurnMotorOff(void) {
-  fdc_TurnMotorOff();
-  uMotor = MOTOR_OFF;
-  if (g_sTime) {
-    printText("\x1F\x09\x05STOPPED!");
-    g_sTime = 0;
-  }
-}
-
-static void ToggleMotor(void) {
-  uMotor ? myTurnMotorOff() : myTurnMotorOn();
-}
-
-void toggleDrives(void) {
-  // myTurnMotorOn();
-  fdc_TurnMotorOn();
-
-  do {
-    uDrive = !uDrive;
-  } while(!fdc_DriveReady(uDrive));
-  fdc_SelectDrive(uDrive, 0);
-
-  if (!uMotor) {
-    fdc_TurnMotorOff();
-  }
-}
-
 static void startRPMs(void) {
   U8 counter;
-  printText("\x1F\x09\x05STARTING");
-  myTurnMotorOn();
+  printText("\x1F\x0A\x05STARTING");
+  fdc_TurnMotorOn();
+  fdc_GoToTrack(uTrack);
+
   do { // Look for a missing address mark error track and sector
+    counter = 0;
     uSectorID++;
-    printStatusSectorID();
-    for(counter = 0, uFoundErrorSectorID = true; counter != 15 && uFoundErrorSectorID; counter++) {
-      fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+    while(counter++ < 8) {
+      uFoundErrorSectorID = fdc_FindSector(uSectorID);
     }
-  } while(counter != 15);
-  printStatusSectorID();
+    printStatusSectorID();
+  } while(!uFoundErrorSectorID);
 
   // Start measuring
-  printText("\x1F\x09\x05RUNNING!");
+  printText("\x1F\x0A\x05RUNNING!");
 
   uLoops = 0;
   g_sTime = 1;  // Start measuring
@@ -277,15 +240,15 @@ static void measureRPMs(void) {
     // FindSector with a wrong sector ID will finish after 2 full rotations
     // of the disc, so uLoops will end up having the number of rotations / 2.
     // Start with syncing the hole...
-    fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
-    // ...and start the measurement.
+    fdc_FindSector(uSectorID);
 
+    // ...and start the measurement.
     enable_my_int();
-    fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);    
+    fdc_FindSector(uSectorID);    
     disable_my_int();
     uLoops++;
 
-    // Print stats every TWO seconds.
+    // Print stats every uPartialSecs
     if (g_sTime > (uPartialSecs * 150)) {
       g_sTime--;
       printStatusRPMs();
@@ -298,7 +261,7 @@ static void measureRPMs(void) {
 
 void main(void) {
 
-  toggleDrives();
+  fdc_toggleDrives();
   
   // firm_set_palette_color(0, 0b0000001100000011);
   // firm_set_palette_color(1, 0b0001100000011000);
@@ -338,31 +301,34 @@ void main(void) {
 
       } else if (uKeyPressed == CHAR_ENTER_BIG || uKeyPressed == CHAR_ENTER_SMALL || uKeyPressed == CHAR_COPY) {
         if (OPT_DRIVE == uSelectedOption) {
-          toggleDrives();
+          fdc_toggleDrives();
 
         } else if (OPT_MOTOR == uSelectedOption) {
-          ToggleMotor();
+          fdc_toggleMotor();
 
         } else if (OPT_TRACK == uSelectedOption) {
           fdc_GoToTrack(uTrack);
 
         } else if (OPT_SECTI == uSelectedOption) {
-          fdc_FindSector(uSectorID, uTrack, &uFoundErrorSectorID);
+          uFoundErrorSectorID = fdc_FindSector(uSectorID);
 
         } else if (OPT_RPM == uSelectedOption) {
           if (!g_sTime) {
             startRPMs();
           } else {
-            ToggleMotor();
-          }
-
-        } else if (OPT_UPD == uSelectedOption) {
-          if (g_sTime) {
-            g_sTime = 1;
-            uLoops = 0;
-            printStatusRPMs();
+            fdc_toggleMotor();
           }
         }
+      }
+
+      // Update measure rpm status based on motor status
+      if (!g_u8MotorOn) {
+        printText("\x1F\x0A\x05        ");
+        g_sTime = 0;
+      } else if (g_sTime) {
+        g_sTime = 1;
+        uLoops = 0;
+        printText("\x1F\x0A\x05RUNNING!");
       }
       printLabels();
     }
