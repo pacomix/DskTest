@@ -16,9 +16,9 @@ extern U8 g_realTime[5];
 extern U8 g_realConstant18000[5];
 extern U8 g_realHalf[5];
 
-extern U8 uTrack;
-extern U8 uSectorID;
-extern U8 uFoundErrorSectorID;
+// extern U8 uTrack;
+// extern U8 uSectorID;
+extern bool g_bSectorIDNotFound;
 extern U16 uRPMs;
 extern U8 uRPMsDec;
 extern U16 uLoops;
@@ -135,24 +135,24 @@ void printInt(U16 uByte) {
 static void printStatusDrives(void) {
   // Current selected drive
   firm_set_cursor_at(POS_X_STAT_DRIVE, POS_Y_STAT_DRIVE);
-  firm_put_char(65 + g_u8DriveSelection);
+  firm_put_char(65 + g_fdc_u8HeadDriveSelection);
 }
 
 static void printStatusMotor(void) {
-  printText(g_u8MotorOn ? "\x1F\x15\x2ON!" : "\x1F\x15\x2OFF");
+  printText(g_fdc_u8MotorOn ? "\x1F\x15\x2ON!" : "\x1F\x15\x2OFF");
 }
 
 static void printStatusTrack(void) {
   // Current selected track
   firm_set_cursor_at(POS_X_STAT_TRACK, POS_Y_STAT_TRACK);
-  printInt((U16)uTrack);
+  printInt((U16)g_fdc_u8TrackSelection);
 }
 
 static void printStatusSectorID(void) {
   // Current selected Sector ID and result
   firm_set_cursor_at(POS_X_STAT_SECTI, POS_Y_STAT_SECTI);
-  printInt((U16)uSectorID);
-  printText(uFoundErrorSectorID ? "\x1F\x24\x04NO!" : "\x1F\x24\x04YES");
+  printInt((U16)g_fdc_u8SectorSelection);
+  printText(g_bSectorIDNotFound ? "\x1F\x24\x04NO!" : "\x1F\x24\x04YES");
 }
 
 static void printStatusUpdSecs(void) {
@@ -217,16 +217,16 @@ static void startRPMs(void) {
   U8 counter;
   printText("\x1F\x0A\x05STARTING");
   fdc_TurnMotorOn();
-  fdc_GoToTrack(uTrack);
+  fdc_GoToTrack();
 
   do { // Look for a missing address mark error track and sector
     counter = 0;
-    uSectorID++;
+    g_fdc_u8SectorSelection++;
     while(counter++ < 8) {
-      uFoundErrorSectorID = fdc_FindSector(uSectorID);
+      g_bSectorIDNotFound = fdc_FindSector();
     }
     printStatusSectorID();
-  } while(!uFoundErrorSectorID);
+  } while(!g_bSectorIDNotFound);
 
   // Start measuring
   printText("\x1F\x0A\x05RUNNING!");
@@ -240,11 +240,11 @@ static void measureRPMs(void) {
     // FindSector with a wrong sector ID will finish after 2 full rotations
     // of the disc, so uLoops will end up having the number of rotations / 2.
     // Start with syncing the hole...
-    fdc_FindSector(uSectorID);
+    fdc_FindSector();
 
     // ...and start the measurement.
     enable_my_int();
-    fdc_FindSector(uSectorID);    
+    fdc_FindSector();    
     disable_my_int();
     uLoops++;
 
@@ -281,22 +281,28 @@ void main(void) {
 
       } else if (uKeyPressed == CHAR_CURSOR_LEFT) {
         if (OPT_TRACK == uSelectedOption) {
-          uTrack -= uTrack > 0 ? 1 : 0;
+          g_fdc_u8TrackSelection--;
+
         } else if (OPT_SECTI == uSelectedOption) {
-          uSectorID -= uSectorID > 0 ? 1 : 0;
+          g_fdc_u8SectorSelection--;
+
         } else if (OPT_UPD == uSelectedOption) {
           uPartialSecs -= 1;
           uPartialInts -= 300;
+
         }
 
       } else if (uKeyPressed == CHAR_CURSOR_RIGHT) {
         if (OPT_TRACK == uSelectedOption) {
-          uTrack += uTrack < 41 ? 1 : 0;
+          g_fdc_u8TrackSelection++;
+
         } else if (OPT_SECTI == uSelectedOption) {
-          uSectorID += uSectorID < 255 ? 1 : 0;
+          g_fdc_u8SectorSelection++;
+
         } else if (OPT_UPD == uSelectedOption) {
           uPartialSecs += 1;
           uPartialInts += 300;
+
         }
 
       } else if (uKeyPressed == CHAR_ENTER_BIG || uKeyPressed == CHAR_ENTER_SMALL || uKeyPressed == CHAR_COPY) {
@@ -307,10 +313,11 @@ void main(void) {
           fdc_toggleMotor();
 
         } else if (OPT_TRACK == uSelectedOption) {
-          fdc_GoToTrack(uTrack);
+          fdc_GoToTrack();
 
         } else if (OPT_SECTI == uSelectedOption) {
-          uFoundErrorSectorID = fdc_FindSector(uSectorID);
+          fdc_GoToTrack();
+          g_bSectorIDNotFound = fdc_FindSector();
 
         } else if (OPT_RPM == uSelectedOption) {
           if (!g_sTime) {
@@ -322,7 +329,7 @@ void main(void) {
       }
 
       // Update measure rpm status based on motor status
-      if (!g_u8MotorOn) {
+      if (!g_fdc_u8MotorOn) {
         printText("\x1F\x0A\x05        ");
         g_sTime = 0;
       } else if (g_sTime) {

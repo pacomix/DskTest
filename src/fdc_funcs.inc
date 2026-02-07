@@ -6,8 +6,9 @@
 #define FDC_CMD_READ_SECTOR             0b01000110
 
 
-/* FDC u765 Register flags */
-
+/*
+  FDC u765 Register flags
+*/
 // FDC u7665 master port flags
 #define FDC_REG_MASTER_READY_TO_SEND_RECEIVE           0b10000000
 #define FDC_REG_MASTER_READY_TO_SEND                   0b01000000
@@ -78,11 +79,11 @@ __sfr __banked __at(0xFA7E) fdc_motor_port;
 __sfr __banked __at(0xFB7E) fdc_master_register_port;
 __sfr __banked __at(0xFB7F) fdc_data_port;
 
-extern U8 g_u8MotorOn;
-extern U8 g_u8DriveSelection;
-extern U8 g_u8TrackSelection;
-extern U8 FDCHEAD;
-extern U8 FDCIDDR;
+extern U8 g_fdc_u8MotorOn;
+extern U8 g_fdc_u8TrackSelection;
+extern U8 g_fdc_u8SectorSelection;
+
+extern U8 g_fdc_u8HeadDriveSelection;
 
 extern U8 ST0;
 extern U8 ST1;
@@ -95,14 +96,16 @@ extern U8 ST3;
 //
 void fdc_variables(void) __naked {
 __asm
-  _g_u8MotorOn: .db #0     ; Motor status   (0-OFF 1-ON)
-  _g_u8DriveSelection: .db #0     ; Selected drive (0-3)
-  _g_u8TrackSelection: .db #0     ; Selected track
-  _FDCHEAD:  .db #0     ; Head used (0-1)
-  _FDCIDDR:  .db #0     ; 0b00000 Head Drive | b2 - Head number | b0-1 - Drive number |
-                        ;           X    XX
+  _g_fdc_u8MotorOn:             .db #0    ; Motor status    (0-OFF 1-ON)
 
-  _ST0: .db #0          ; FDC status registers
+  _g_fdc_u8TrackSelection:      .db #0    ; Selected track  (0-79)
+  _g_fdc_u8SectorSelection:     .db #0xC1 ; Selected track  (0-79)
+
+  _g_fdc_u8HeadDriveSelection:  .db #0    ; 0b00000 Head Drive | b2 - Head number | b0-1 - Drive number |
+                                          ;   XXXXX   X    XX
+  
+  ; FDC status registers
+  _ST0: .db #0
   _ST1: .db #0
   _ST2: .db #0
   _ST3: .db #0
@@ -153,6 +156,13 @@ U8 fdc_getData(void) {
   return fdc_data_port;
 }
 
+U8 fdc_cmd_sense_interrupt_status(void) {
+  fdc_sendData(FDC_CMD_SENSE_INTERRUPT_STATUS);
+  ST0 = fdc_getData();
+  fdc_getData(); //Track position
+  return ST0;
+}
+
 //
 // Executes the sense interrupt status command
 // to get the ST0 register status.
@@ -168,11 +178,7 @@ U8 fdc_getData(void) {
 // what to do with the result.
 //
 void fdc_wait_seek_command_to_finish(void) /* __naked */ {
-  do {
-    fdc_sendData(FDC_CMD_SENSE_INTERRUPT_STATUS);
-    ST0 = fdc_getData();
-    fdc_getData(); //Track position
-  } while(!(FDC_REG_ST0_END_SEEK & ST0));
+  while(!(FDC_REG_ST0_END_SEEK & fdc_cmd_sense_interrupt_status()));
 }
 
 //
@@ -194,7 +200,7 @@ __endasm;
 // Waiting time is required to ensure the spin be constant.
 //
 void fdc_TurnMotorOn(void) {
-  fdc_motor_port = g_u8MotorOn = MOTOR_ON;
+  fdc_motor_port = g_fdc_u8MotorOn = MOTOR_ON;
   fdc_MotorWait();
 }
 
@@ -203,12 +209,12 @@ void fdc_TurnMotorOn(void) {
 // Turn FDC motor off.
 //
 void fdc_TurnMotorOff(void) {
-  fdc_motor_port = g_u8MotorOn = MOTOR_OFF;
+  fdc_motor_port = g_fdc_u8MotorOn = MOTOR_OFF;
 }
 
 
 static void fdc_toggleMotor(void) {
-  g_u8MotorOn ? fdc_TurnMotorOff() : fdc_TurnMotorOn();
+  g_fdc_u8MotorOn ? fdc_TurnMotorOff() : fdc_TurnMotorOn();
 }
 
 //
@@ -217,33 +223,24 @@ static void fdc_toggleMotor(void) {
 //
 void fdc_Calibrate(void) /* __naked */ {
   fdc_sendData(FDC_CMD_RECALIBRATE);
-  fdc_sendData(FDCIDDR);
+  fdc_sendData(g_fdc_u8HeadDriveSelection);
   fdc_wait_seek_command_to_finish();
   fdc_MotorWait();
+  // TODO - perform check to see if the command was successful, retry several times when not
 }
 
 
 //
 // Moves the head to the specified track
 //
-void fdc_GoToTrack(U8 uTrack) {
-  g_u8TrackSelection = uTrack;
+void fdc_GoToTrack(void) {
   fdc_Calibrate();
   fdc_sendData(FDC_CMD_SEEK);
-    fdc_sendData(FDCIDDR);
-    fdc_sendData(uTrack);
+    fdc_sendData(g_fdc_u8HeadDriveSelection);
+    fdc_sendData(g_fdc_u8TrackSelection);
   fdc_wait_seek_command_to_finish();
-}
 
-
-//
-// Sets the drive and head to use for the
-// FDC commands.
-//
-void fdc_SelectDrive(U8 uDrive, U8 uHead) {
-  g_u8DriveSelection = uDrive;
-  FDCHEAD = uHead;
-  FDCIDDR = (uHead << 2) | uDrive;  // Drive+Head | b0-1 - Drive number | b2 - Head number
+  // TODO - perform checks to see if the seek command was successful and if not perform a calibrate command and retry
 }
 
 
@@ -253,9 +250,10 @@ void fdc_SelectDrive(U8 uDrive, U8 uHead) {
 //
 U8 fdc_get_drive_status(void) {
   fdc_sendData(FDC_CMD_SENSE_DRIVE_STATUS);
-    fdc_sendData(g_u8DriveSelection);
-  
+    // fdc_sendData(g_fdc_u8DriveSelection); // NOTE - It looks like sending head drive selection byte works fine as well but keep an eye in case something does not work fine at the end. In theory and according to the FDC documentation here we should only send the drive number bits (b1-0) BUT since we are not supporting (still) double headed drives the value is the same.
+    fdc_sendData(g_fdc_u8HeadDriveSelection);
   fdc_wait_ready_to_send_receive_data();
+
   ST3 = fdc_getData();
   return ST3;
 }
@@ -273,11 +271,11 @@ bool fdc_DriveReady(void) {
 
 
 void fdc_toggleDrives(void) {
-  U8 u8MotorOn = g_u8MotorOn;
+  U8 u8MotorOn = g_fdc_u8MotorOn;
   fdc_TurnMotorOn();
 
   do {
-    fdc_SelectDrive(!g_u8DriveSelection, 0);
+    g_fdc_u8HeadDriveSelection = !g_fdc_u8HeadDriveSelection;  // Drive+Head | b0-1 - Drive number | b2 - Head number
   } while(!fdc_DriveReady());
 
   if (!u8MotorOn) {
@@ -290,17 +288,16 @@ void fdc_toggleDrives(void) {
 // Moves the head to the specified track and try
 // to find a sector with the specified Sector ID.
 //
-bool fdc_FindSector(U8 uSectorID) {
-  fdc_GoToTrack(g_u8TrackSelection);
+bool fdc_FindSector(void) {
   // START - Command
   fdc_sendData(FDC_CMD_READ_SECTOR);
   // Command parameters
-    fdc_sendData(FDCIDDR);
-    fdc_sendData(g_u8TrackSelection);
-    fdc_sendData(FDCHEAD);
-    fdc_sendData(uSectorID);
+    fdc_sendData(g_fdc_u8HeadDriveSelection);
+    fdc_sendData(g_fdc_u8TrackSelection);
+    fdc_sendData(0);  // HEAD selection is hardcoded to 0. Not supported in the classic CPCs anyways. Sorry for the other (very uncommon) CPC 3" double headed drives.
+    fdc_sendData(g_fdc_u8SectorSelection);
     fdc_sendData(0x02);
-    fdc_sendData(uSectorID);
+    fdc_sendData(g_fdc_u8SectorSelection);
     fdc_sendData(0x52);
     fdc_sendData(0xFF);
   fdc_wait_ready_to_send_receive_data();

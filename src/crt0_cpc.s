@@ -31,11 +31,7 @@ __bootstrap::   ; Tag used by the build script to identify the load/entry point.
 _old_int:: .dw #0x0000
 _uKeyPressed:: .db #0x00
 _uSelectedOption:: .db #0x00
-_uTrack:: .db #0x10
-_uSectorID:: .db #0xC1
-_uFoundErrorSectorID:: .db #0x00
-;;_uMotor:: .db #0x00
-;;_uDrive:: .db #0x00
+_g_bSectorIDNotFound:: .db #0x00
 _uRPMs:: .dw #0x0000
 _uRPMsDec:: .db #0x00
 _uLoops:: .dw #0x0000
