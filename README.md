@@ -3,52 +3,59 @@ This tool is a native Amstrad CPC tool that can help to diagnose a faulty disk d
 
 Main purposes:
 * Measure disk drive RPMs.
-* Alignment of the motor.
+* Alignment of the head.
 
 # Requirements
 Any Amstrad CPC with a working disk drive or cassette player to load the program.
-Unfortunately the latest releases don't work in a 464/664 machines yet.
+Unfortunately the latest release don't work in a 464/664 machines (yet).
 
 Head to the Releases section to download it.
 
 # Features
 * Disk drive selection.
 * Start/stop the disk drive motor.
-* Move head to track.
-* Search for a Sector ID.
+* Search for a Sector ID on a track.
 * Measure RPMs.
+* Alignment of the head.
 
 # Instructions
 ## Options
-### Drive
-Press Enter to discover and switch to the next available drive (A/B). Only two drives are supported.
+### Drive selection
+Press 1 to discover and switch to the next available drive (A/B). Only two drives are supported.
 The switch can be activated even while measuring the RPMs in realtime.
 
-### Motor
-Press Enter to start/stop the motor of the selected drive.
-If a Sector ID wasn't found as a result of a previous search, the tool will start measuring RPMs. This is tipically the case when RPMs have been measuring and we stopped the motor intentionally, so activating it again will "resume" the measuring.
+### Toggle motor
+Press 2 to start/stop the motor of the selected drive.
 
-### Track
-Moves the drive head to the currently selected track (0-41).
-
-Select the track with the left-right cursors and activate the functionality with Enter.
-
-### Sector
-Try to find a Sector ID in the current track with the specified value.
-
-Select the Sector ID with the left-right cursor keys and activate the functionality with Enter.
-
-### RPMs
-Measure the RPMs of the current selected drive. It turns the motor on, searches for an invalid Sector ID and it starts the process.
-
-The RPMs will be calculated every 2 seconds but that can be changed with the next option.
-
-Worth noting that you can move and change any of the available parameters during the measurement.
-
-### UpdSec
-This is the time in seconds where the RPM measurement takes place.
+### RPM update time
+Press Q-W to increase/decrease the time taken to print the partial results of RPM measurement.
 
 A good value is between 2-8 seconds.
+
+### Track selection
+Press A-S to select the target track that will be used for the test operations.
+
+### Sector selection
+Press Z-X to select a target Sector ID to use for the test operations.
+
+### Test RPMs
+Press ENTER (BIG Enter) to start/stop measuring the RPMs of the current selected drive. It turns the motor on, searches for an invalid Sector ID and it starts the process.
+
+The RPM results will be calculated using the amount of seconds specified in the options.
+
+### Test Sector ID
+Press ENTER (Big enter) to search for the specified Sector ID at the specified track.
+
+### Test head alignment
+Be careful when using this test since it will run indefinitely until it succeeds.
+
+This test will iterate from Track 0 until the selected track and will start reading all the Sector IDs for each of the tracks starting from the specified Sector ID until Sector ID+9 retrying the same Sector ID until it is found.
+This will enable us to adjust in real time the alignment.
+You can start specifying a low track number and progress to higher ones.
+
+You need to ensure the disk you use contains no errors and that the specified Sector ID at the beginning of the test is the first of each track.
+
+For an Amstrad DATA format disk that would be the Sector ID number 193 (c1 in hex)
 
 # A bit of background
 The original code and the build pipeline (python 2.7 based) is more than 10 years old but it's been modified to work with Python 3.
@@ -122,4 +129,3 @@ python3 ./build/build.py ./sources/DskTestFirm
 ```shell
 ./build/Python3/bin/python3 ./build/build.py ./sources/DskTestFirm
 ```
-

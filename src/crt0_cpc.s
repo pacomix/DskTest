@@ -29,18 +29,16 @@ __bootstrap::   ; Tag used by the build script to identify the load/entry point.
 ;;    extern unsigned char g_szBytes[6];
 ;;
 _old_int:: .dw #0x0000
-_uKeyPressed:: .db #0x00
-_uSelectedOption:: .db #0x00
+_g_u8KeyPressed:: .db #0x00
+_g_u8SelectedOption:: .db #0x00
 _g_bSectorIDNotFound:: .db #0x00
-_uRPMs:: .dw #0x0000
-_uRPMsDec:: .db #0x00
-_uLoops:: .dw #0x0000
-_uPartialSecs:: .db #0x02
-_uPartialInts:: .db #0x0258
-_uReadSectors:: .db #0x01
-_uReadBytes:: .dw #0x1000
+_g_u16RPMs:: .dw #0x0000
+_g_u8RPMsDec:: .db #0x00
+_g_u16Loops:: .dw #0x0000
+_g_u8PartialSecs:: .db #0x02
+_g_u16PartialInts:: .dw #0x0258
 _g_szBytes:: .db #0x00,#0x00,#0x00,#0x00,#0x00,#0x00
-_g_sTime:: .dw #0x0000
+_g_u16Time:: .dw #0x0000
 
 _g_realTime:: .ds 5
 _g_realLoops:: .ds 5
@@ -72,31 +70,21 @@ _g_realHalf:: .ds 5           ; TODO - precalc this one
 .endm
 
 _szInfoMsg::  SCR_MODE 2
+              .ascii  "(1)DRV:   (2)MOTOR:     (Q-W)UpdSc:     (A-S)TR:     (Z-X)SECID:     FOUND:    "
               ASCII_AT 32, 16, ^|"::: WARNING :::"|
               ASCII_AT 28, 18, ^|"USE IT AT YOUR OWN RISK"|
 
               CURSOR_AT 1, 24
-              .ascii "DskTest v2.1-RC1\r\nFrancisco Jos"
+              .ascii "DskTest v2.2-RC1\r\nFrancisco Jos"
               CHAR_ACCENT ^|"e"|
               .ascii " <PACOMIX> S"
               CHAR_ACCENT ^|"a"|
               .ascii "nchez - https://linkedin.com/in/pacomix"
 
-_szOptions::  CURSOR_RESET
-              .ascii  " SELECT DRIVE:\r\n"
-
-              .ascii  " TOGGLE MOTOR:\r\n"
-              .ascii  " GO TO TRACK:\r\n"
-
-              .ascii  " FIND SECTOR ID:"
-              ASCII_AT 28,4,^|"FOUND:\r\n"|
-
-              .ascii  " TEST RPMs.\r\n"
-              .ascii  " Update Time:\r\n"
-              .ascii  " ReadSects:\r\n"
-              .ascii  " ReadBytes:\r\n"
-              .ascii  " Test Tracks\r\n"
-
+_szOptions::  CURSOR_AT 1, 3
+              .ascii  " TEST RPMs\r\n"
+              .ascii  " TEST SECID\r\n"
+              .ascii  " TEST ALIGN UNTIL TRACK\r\n"
               .asciz  ""
 
 
