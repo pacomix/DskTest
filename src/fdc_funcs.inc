@@ -61,7 +61,7 @@
 #define FDC_REG_ST2_BAD_TRACK               0b00000010
 #define FDC_REG_ST2_NO_ADDRESS_MARK         0b00000001
 
-// FDC u7665 Status Register 3 - FDC_CMD_DRIVE_STATUS result flags
+// FDC u7665 Status Register 3 - FDC_CMD_SENSE_DRIVE_STATUS result flags
 #define FDC_REG_ST3_FAULT            0b10000000
 #define FDC_REG_ST3_WRITE_PROTECTED  0b01000000
 #define FDC_REG_ST3_READY            0b00100000
@@ -181,6 +181,20 @@ void fdc_wait_seek_command_to_finish(void) /* __naked */ {
   while(!(FDC_REG_ST0_END_SEEK & fdc_cmd_sense_interrupt_status()));
 }
 
+
+//
+// Retrieve the ST3 status register.
+//
+U8 fdc_get_drive_status(void) {
+  fdc_sendData(FDC_CMD_SENSE_DRIVE_STATUS);
+    // fdc_sendData(g_fdc_u8DriveSelection); // NOTE - It looks like sending head drive selection byte works fine as well but keep an eye in case something does not work fine at the end. In theory and according to the FDC documentation here we should only send the drive number bits (b1-0) BUT since we are not supporting (still) double headed drives the value is the same.
+    fdc_sendData(g_fdc_u8HeadDriveSelection);
+  fdc_wait_ready_to_send_receive_data();
+
+  ST3 = fdc_getData();
+  return ST3;
+}
+
 //
 // Wait a bit - 180 interrupts - 0.6 seconds
 //
@@ -221,12 +235,21 @@ static void fdc_toggleMotor(void) {
 // Recalibrate current drive.
 // Moves the head to track 0.
 //
-void fdc_Calibrate(void) /* __naked */ {
+// Return true if head was moved to Track0.
+// NOTE - The command finishes when the head was
+// moved to Track0 OR 77 impulses were sent to
+// to the head. For drives with 80 tracks it is
+// possible that the head wasn't fully moved to
+// the track 0 so it's up to the programmer to
+// retry at least the command once if it fails
+// at first try.
+//
+bool fdc_Recalibrate(void) /* __naked */ {
   fdc_sendData(FDC_CMD_RECALIBRATE);
-  fdc_sendData(g_fdc_u8HeadDriveSelection);
-  fdc_wait_seek_command_to_finish();
+    fdc_sendData(g_fdc_u8HeadDriveSelection);
   fdc_MotorWait();
-  // TODO - perform check to see if the command was successful, retry several times when not
+  
+  return FDC_REG_ST3_TRACK0 & fdc_get_drive_status();
 }
 
 
@@ -234,7 +257,6 @@ void fdc_Calibrate(void) /* __naked */ {
 // Moves the head to the specified track
 //
 void fdc_GoToTrack(void) {
-  // fdc_Calibrate();
   fdc_sendData(FDC_CMD_SEEK);
     fdc_sendData(g_fdc_u8HeadDriveSelection);
     fdc_sendData(g_fdc_u8TrackSelection);
@@ -243,20 +265,6 @@ void fdc_GoToTrack(void) {
   // TODO - perform checks to see if the seek command was successful and if not perform a calibrate command and retry
 }
 
-
-
-//
-// Retrieve the ST3 status register.
-//
-U8 fdc_get_drive_status(void) {
-  fdc_sendData(FDC_CMD_SENSE_DRIVE_STATUS);
-    // fdc_sendData(g_fdc_u8DriveSelection); // NOTE - It looks like sending head drive selection byte works fine as well but keep an eye in case something does not work fine at the end. In theory and according to the FDC documentation here we should only send the drive number bits (b1-0) BUT since we are not supporting (still) double headed drives the value is the same.
-    fdc_sendData(g_fdc_u8HeadDriveSelection);
-  fdc_wait_ready_to_send_receive_data();
-
-  ST3 = fdc_getData();
-  return ST3;
-}
 
 //
 // Ask if the specified drive is available
@@ -300,132 +308,132 @@ void fdc_cmd_read_sector_send(void) {
     fdc_sendData(0xFF);
 }
 
-void fdc_cmd_read_sector_get_data_skip(U8 skipBytes, U8* p_u8Addr) {
-  while(FDC_REG_MASTER_EXECUTION_STAGE & fdc_port_master_reg) {
-    // *p_u8Addr++ = fdc_getData();
-    // fdc_wait_ready_to_send_receive_data();
+// void fdc_cmd_read_sector_get_data_skip(U8 skipBytes, U8* p_u8Addr) {
+//   while(FDC_REG_MASTER_EXECUTION_STAGE & fdc_port_master_reg) {
+//     // *p_u8Addr++ = fdc_getData();
+//     // fdc_wait_ready_to_send_receive_data();
 
-    while(!(FDC_REG_MASTER_READY_TO_SEND_RECEIVE & fdc_port_master_reg));
-    if (skipBytes) {
-      skipBytes--;
-      *p_u8Addr = fdc_port_data;
-    } else {
-      *p_u8Addr = fdc_port_data;
-      p_u8Addr++;
-    }
-  }
-}
+//     while(!(FDC_REG_MASTER_READY_TO_SEND_RECEIVE & fdc_port_master_reg));
+//     if (skipBytes) {
+//       skipBytes--;
+//       *p_u8Addr = fdc_port_data;
+//     } else {
+//       *p_u8Addr = fdc_port_data;
+//       p_u8Addr++;
+//     }
+//   }
+// }
 
-void fdc_cmd_read_sector_get_data(U8* p_u8Addr) {
-  do {
-    // NOTE - The below commented out line should be fine as well but introduces a long execution time and the byte coming from the FDC controller is sometimes ovewritten by a new one before we can retrieve it.
-    // We have thus to inline the functionality.
-    //fdc_wait_ready_to_send_receive_data();
+// void fdc_cmd_read_sector_get_data(U8* p_u8Addr) {
+//   do {
+//     // NOTE - The below commented out line should be fine as well but introduces a long execution time and the byte coming from the FDC controller is sometimes ovewritten by a new one before we can retrieve it.
+//     // We have thus to inline the functionality.
+//     //fdc_wait_ready_to_send_receive_data();
 
-    while(!(FDC_REG_MASTER_READY_TO_SEND_RECEIVE & fdc_port_master_reg));
-    *p_u8Addr++ = fdc_port_data;
-  } while(FDC_REG_MASTER_EXECUTION_STAGE & fdc_port_master_reg);
-}
+//     while(!(FDC_REG_MASTER_READY_TO_SEND_RECEIVE & fdc_port_master_reg));
+//     *p_u8Addr++ = fdc_port_data;
+//   } while(FDC_REG_MASTER_EXECUTION_STAGE & fdc_port_master_reg);
+// }
 
 
-// hl - p_u8Addr
-// Achieved changing the border with different colours for EACH byte read.
-void fdc_cmd_read_sector_get_data_fast(U8* p_u8Addr) __sdcccall(1) {
+// // hl - p_u8Addr
+// // Achieved changing the border with different colours for EACH byte read.
+// void fdc_cmd_read_sector_get_data_fast(U8* p_u8Addr) __sdcccall(1) {
 
-  (void) p_u8Addr;
-__asm
+//   (void) p_u8Addr;
+// __asm
 
-ld bc, #_ga_border_and_fdc_port ; Port I/O trickery. Load BC with Gate Array
-                                ; border pen selection and FDC master port
-                                ; registers (plus some bitmask to avoid port
-                                ; conflicts) so we can READ data from the FDC
-                                ; and WRITE data to the Gate Array without the
-                                ; need of changing BC each time. Without this,
-                                ; border color change for each of the read bytes
-                                ; would be impossible due we have just some CPU
-                                ; available cycles before the next byte is made
-                                ; available in the FDC data port.
-out (c), c                      ; Select Gate Array border pen so when
-                                ; out (c), a is called we change the colour of
-                                ; the border.
-LOOP_READ_BYTES:
-  LOOP_WAIT_FOR_DATA:       ; // Wait for the FDC READY TO SEND *OR* RECEIVE DATA.
-    in a, (c)               ; Read the master register of the fdc
-  jp p, #LOOP_WAIT_FOR_DATA ; and repeat the operation until the FDC says it is ready to send/receive data.
-                            ; jp p (jump if positive sign) is here used instead of AND #FDC_REG_MASTER_READY_TO_SEND_RECEIVE + JR Z
-                            ; because FDC_REG_MASTER_READY_TO_SEND_RECEIVE byte mask is 0b10000000 and that matches the sign bit.
+// ld bc, #_ga_border_and_fdc_port ; Port I/O trickery. Load BC with Gate Array
+//                                 ; border pen selection and FDC master port
+//                                 ; registers (plus some bitmask to avoid port
+//                                 ; conflicts) so we can READ data from the FDC
+//                                 ; and WRITE data to the Gate Array without the
+//                                 ; need of changing BC each time. Without this,
+//                                 ; border color change for each of the read bytes
+//                                 ; would be impossible due we have just some CPU
+//                                 ; available cycles before the next byte is made
+//                                 ; available in the FDC data port.
+// out (c), c                      ; Select Gate Array border pen so when
+//                                 ; out (c), a is called we change the colour of
+//                                 ; the border.
+// LOOP_READ_BYTES:
+//   LOOP_WAIT_FOR_DATA:       ; // Wait for the FDC READY TO SEND *OR* RECEIVE DATA.
+//     in a, (c)               ; Read the master register of the fdc
+//   jp p, #LOOP_WAIT_FOR_DATA ; and repeat the operation until the FDC says it is ready to send/receive data.
+//                             ; jp p (jump if positive sign) is here used instead of AND #FDC_REG_MASTER_READY_TO_SEND_RECEIVE + JR Z
+//                             ; because FDC_REG_MASTER_READY_TO_SEND_RECEIVE byte mask is 0b10000000 and that matches the sign bit.
 
-  // Exit if read sector command is finished
-  and #FDC_REG_MASTER_EXECUTION_STAGE ; Check if the fdc is still reading bytes
-  ret z                               ; and exit if we are done.
+//   // Exit if read sector command is finished
+//   and #FDC_REG_MASTER_EXECUTION_STAGE ; Check if the fdc is still reading bytes
+//   ret z                               ; and exit if we are done.
 
-  // Read the byte from the FDC port and leave it in A register
-  inc c     ; Optimization trick to avoid <ld bc, #_fdc_port_data> since fdc data port is just _fdc_port_master_reg + 1
-  in a, (c) ; Read the byte from the fdc data port
-  dec c     ; Leave the port again pointing to _fdc_port_master_reg for the next loop iteration
+//   // Read the byte from the FDC port and leave it in A register
+//   inc c     ; Optimization trick to avoid <ld bc, #_fdc_port_data> since fdc data port is just _fdc_port_master_reg + 1
+//   in a, (c) ; Read the byte from the fdc data port
+//   dec c     ; Leave the port again pointing to _fdc_port_master_reg for the next loop iteration
   
-  // Store the byte in our target memory address.
-  ld (hl), a                    ; ...store it in our target memory address
-  inc hl                        ; and point to the next memory address for the next byte read.
+//   // Store the byte in our target memory address.
+//   ld (hl), a                    ; ...store it in our target memory address
+//   inc hl                        ; and point to the next memory address for the next byte read.
 
-  // Change the colour of the border based on the read data... BECAUSE WE CAN!!! :)
-  or #GA_REG_SET_COLOR        ; Activate the set ink/color command mixed with the read byte...
-  and #GA_REG_SET_COLOR_MASK  ; ...and ensure we send the right color info to the Gate Array
-  out (c), a                  ; and not something else.
+//   // Change the colour of the border based on the read data... BECAUSE WE CAN!!! :)
+//   or #GA_REG_SET_COLOR        ; Activate the set ink/color command mixed with the read byte...
+//   and #GA_REG_SET_COLOR_MASK  ; ...and ensure we send the right color info to the Gate Array
+//   out (c), a                  ; and not something else.
 
-jp LOOP_READ_BYTES
+// jp LOOP_READ_BYTES
   
-LOOP_END_READ:
-__endasm;
-}
+// LOOP_END_READ:
+// __endasm;
+// }
 
 
 
 
-U16 fdc_cmd_read_sector_get_data_count(U8* p_u8Addr, U16 uByteCount) __sdcccall(1) {
+// U16 fdc_cmd_read_sector_get_data_count(U8* p_u8Addr, U16 uByteCount) __sdcccall(1) {
 
-  (void) p_u8Addr;
-  (void) uByteCount;
-__asm
+//   (void) p_u8Addr;
+//   (void) uByteCount;
+// __asm
 
-ld bc, #_fdc_port_master_reg
+// ld bc, #_fdc_port_master_reg
 
-LOOP_READ_BYTES_COUNT:
-  LOOP_WAIT_FOR_DATA_COUNT:       ; // Wait for the FDC READY TO SEND *OR* RECEIVE DATA 
-    in a, (c)                     ; Read the master register of the fdc
-  jp p, #LOOP_WAIT_FOR_DATA_COUNT ; and repeat the operation until the FDC says it is ready to send/receive data.
-                                  ; jp p (jump if positive sign) is here used instead of AND #FDC_REG_MASTER_READY_TO_SEND_RECEIVE + JR Z
-                                  ; because FDC_REG_MASTER_READY_TO_SEND_RECEIVE byte mask is 0b10000000 and that matches the sign bit.
+// LOOP_READ_BYTES_COUNT:
+//   LOOP_WAIT_FOR_DATA_COUNT:       ; // Wait for the FDC READY TO SEND *OR* RECEIVE DATA 
+//     in a, (c)                     ; Read the master register of the fdc
+//   jp p, #LOOP_WAIT_FOR_DATA_COUNT ; and repeat the operation until the FDC says it is ready to send/receive data.
+//                                   ; jp p (jump if positive sign) is here used instead of AND #FDC_REG_MASTER_READY_TO_SEND_RECEIVE + JR Z
+//                                   ; because FDC_REG_MASTER_READY_TO_SEND_RECEIVE byte mask is 0b10000000 and that matches the sign bit.
 
-  // exit if read sector command is finished
-  and #FDC_REG_MASTER_EXECUTION_STAGE ; Check if the fdc is still reading bytes
-  ret z                               ; and exit if we are done.
+//   // exit if read sector command is finished
+//   and #FDC_REG_MASTER_EXECUTION_STAGE ; Check if the fdc is still reading bytes
+//   ret z                               ; and exit if we are done.
 
-  // Read the byte from the FDC port and leave it in A register
-  inc c     ; Optimization trick to avoid <ld bc, #_fdc_port_data> since fdc data port is just _fdc_port_master_reg + 1
-  in a, (c) ; Read the byte from the fdc data port
-  dec c     ; Leave the port again pointing to _fdc_port_master_reg for the next loop iteration
+//   // Read the byte from the FDC port and leave it in A register
+//   inc c     ; Optimization trick to avoid <ld bc, #_fdc_port_data> since fdc data port is just _fdc_port_master_reg + 1
+//   in a, (c) ; Read the byte from the fdc data port
+//   dec c     ; Leave the port again pointing to _fdc_port_master_reg for the next loop iteration
 
-  // Skip the remaining sector bytes if we read all the required bytes (uByteCount stored in DE register)
-  ex af, af'                    ;' Backup A register because we need it
-  ld a, d                       ; If uByteCount (stored in DE)
-  or e                          ; reached 0, it means we do not need to read more bytes,
-  jr z, #LOOP_READ_BYTES_COUNT  ; hence we keep reading bytes until the command finishes.
+//   // Skip the remaining sector bytes if we read all the required bytes (uByteCount stored in DE register)
+//   ex af, af'                    ;' Backup A register because we need it
+//   ld a, d                       ; If uByteCount (stored in DE)
+//   or e                          ; reached 0, it means we do not need to read more bytes,
+//   jr z, #LOOP_READ_BYTES_COUNT  ; hence we keep reading bytes until the command finishes.
   
-  // else decrement bytes to read and...
-  dec de                        ; Otherwise, decrement the uByteCount (stored in DE)
-  ex af, af'                    ;' recover the read byte from the FDC...
+//   // else decrement bytes to read and...
+//   dec de                        ; Otherwise, decrement the uByteCount (stored in DE)
+//   ex af, af'                    ;' recover the read byte from the FDC...
 
-  // ...store the byte in our target memory address.
-  ld (hl), a                    ; ...store it in our target memory address
-  inc hl                        ; and point to the next memory address for the next byte read.
+//   // ...store the byte in our target memory address.
+//   ld (hl), a                    ; ...store it in our target memory address
+//   inc hl                        ; and point to the next memory address for the next byte read.
 
-jp LOOP_READ_BYTES_COUNT
+// jp LOOP_READ_BYTES_COUNT
 
-__endasm;
-}
+// __endasm;
+// }
 
-// TODO make version that stores the last byte in last target memory address + 1 to reduce bytesize
+// // TODO make version that stores the last byte in last target memory address + 1 to reduce bytesize
 
 
 void fdc_cmd_read_sector_get_results(void) {
@@ -471,37 +479,51 @@ bool fdc_FindSector(void) {
   return ST1 & (FDC_REG_ST1_SECTOR_NOT_FOUND | FDC_REG_ST1_NO_ADDRESS_MARK);
 }
 
-bool fdc_read_sector_skip(U8 skipBytes, U8* p_u8Addr) {
-  __asm di __endasm;
-  do {
-    fdc_cmd_read_sector_send();
-    fdc_cmd_read_sector_get_data_skip(skipBytes, p_u8Addr);
-    fdc_cmd_read_sector_get_results();
-  } while (ST1 & (FDC_REG_ST1_CRC_ERROR | FDC_REG_ST1_DATA_OVERRUN | FDC_REG_ST1_SECTOR_NOT_FOUND | FDC_REG_ST1_NO_ADDRESS_MARK));
+// bool fdc_read_sector_skip(U8 skipBytes, U8* p_u8Addr) {
+//   __asm di __endasm;
+//   do {
+//     fdc_cmd_read_sector_send();
+//     fdc_cmd_read_sector_get_data_skip(skipBytes, p_u8Addr);
+//     fdc_cmd_read_sector_get_results();
+//   } while (ST1 & (FDC_REG_ST1_CRC_ERROR | FDC_REG_ST1_DATA_OVERRUN | FDC_REG_ST1_SECTOR_NOT_FOUND | FDC_REG_ST1_NO_ADDRESS_MARK));
 
-  __asm ei __endasm;
-  return true;
-}
+//   __asm ei __endasm;
+//   return true;
+// }
 
 
-bool fdc_read_sector(U8* p_u8Addr) {
-  __asm di __endasm;
-  do {
-    fdc_cmd_read_sector_send();
-    fdc_cmd_read_sector_get_data(p_u8Addr);
-    fdc_cmd_read_sector_get_results();
-  } while (ST1 & (FDC_REG_ST1_CRC_ERROR | FDC_REG_ST1_DATA_OVERRUN | FDC_REG_ST1_SECTOR_NOT_FOUND | FDC_REG_ST1_NO_ADDRESS_MARK));
+// bool fdc_read_sector(U8* p_u8Addr) {
+//   __asm di __endasm;
+//   do {
+//     fdc_cmd_read_sector_send();
+//     fdc_cmd_read_sector_get_data(p_u8Addr);
+//     fdc_cmd_read_sector_get_results();
+//   } while (ST1 & (FDC_REG_ST1_CRC_ERROR | FDC_REG_ST1_DATA_OVERRUN | FDC_REG_ST1_SECTOR_NOT_FOUND | FDC_REG_ST1_NO_ADDRESS_MARK));
 
-  __asm ei __endasm;
-  return true;
-}
+//   __asm ei __endasm;
+//   return true;
+// }
 
+// //
+// // Read bytes starting from the current selected track/sector onwards.
+// // 
+// // Params:
+// //    p_u8Addr    - Target address where to start storing the bytes.
+// //    uByteCount  - Amount of bytes to read.
+// //
+// // Entry conditions
+// // // bytes starting from g_fdc_u8TrackSelection and g_fdc_u8SectorSelection
 // bool fdc_read_bytes(U8* p_u8Addr, U16 uByteCount) {
 // __asm di __endasm;
 
-//   while (uByteCount) {
+//   do {
 //     fdc_cmd_read_sector_send();
-//     uByteCount = fdc_cmd_read_sector_get_data_count(p_u8Addr, uByteCount);
+//     if (uByteCount > 512) {
+//       fdc_cmd_read_sector_get_data_fast(p_u8Addr);
+//       uByteCount -= 512;
+//     } else {
+//       uByteCount = fdc_cmd_read_sector_get_data_count(p_u8Addr, uByteCount);
+//     }
 //     fdc_cmd_read_sector_get_results();
 //     p_u8Addr += 512;
     
@@ -513,45 +535,8 @@ bool fdc_read_sector(U8* p_u8Addr) {
 //       g_fdc_u8TrackSelection++;
 //       fdc_GoToTrack();
 //     }
-//   }
+//   } while (uByteCount);
 
 // __asm ei __endasm;
 //   return true;
 // }
-
-//
-// Read bytes starting from the current selected track/sector onwards.
-// 
-// Params:
-//    p_u8Addr    - Target address where to start storing the bytes.
-//    uByteCount  - Amount of bytes to read.
-//
-// Entry conditions
-// // bytes starting from g_fdc_u8TrackSelection and g_fdc_u8SectorSelection
-bool fdc_read_bytes(U8* p_u8Addr, U16 uByteCount) {
-__asm di __endasm;
-
-  do {
-    fdc_cmd_read_sector_send();
-    if (uByteCount > 512) {
-      fdc_cmd_read_sector_get_data_fast(p_u8Addr);
-      uByteCount -= 512;
-    } else {
-      uByteCount = fdc_cmd_read_sector_get_data_count(p_u8Addr, uByteCount);
-    }
-    fdc_cmd_read_sector_get_results();
-    p_u8Addr += 512;
-    
-    // Exit if error (caller is responsible to retry the read)
-    if (ST1 & (FDC_REG_ST1_CRC_ERROR | FDC_REG_ST1_DATA_OVERRUN | FDC_REG_ST1_SECTOR_NOT_FOUND | FDC_REG_ST1_NO_ADDRESS_MARK)) {
-      return false;
-    } else if (++g_fdc_u8SectorSelection > 201) { // If no errors then adjust next sector/track to read.
-      g_fdc_u8SectorSelection = 193;
-      g_fdc_u8TrackSelection++;
-      fdc_GoToTrack();
-    }
-  } while (uByteCount);
-
-__asm ei __endasm;
-  return true;
-}
