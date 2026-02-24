@@ -37,6 +37,8 @@ _uRPMsDec:: .db #0x00
 _uLoops:: .dw #0x0000
 _uPartialSecs:: .db #0x02
 _uPartialInts:: .db #0x0258
+_uReadSectors:: .db #0x01
+_uReadBytes:: .dw #0x1000
 _g_szBytes:: .db #0x00,#0x00,#0x00,#0x00,#0x00,#0x00
 _g_sTime:: .dw #0x0000
 
@@ -74,23 +76,26 @@ _szInfoMsg::  SCR_MODE 2
               ASCII_AT 28, 18, ^|"USE IT AT YOUR OWN RISK"|
 
               CURSOR_AT 1, 24
-              .ascii "DskTest v2.0-RC3\r\nFrancisco Jos"
+              .ascii "DskTest v2.1-RC1\r\nFrancisco Jos"
               CHAR_ACCENT ^|"e"|
               .ascii " <PACOMIX> S"
               CHAR_ACCENT ^|"a"|
               .ascii "nchez - https://linkedin.com/in/pacomix"
 
 _szOptions::  CURSOR_RESET
-              .ascii  " DRIVE:\r\n"
+              .ascii  " SELECT DRIVE:\r\n"
 
-              .ascii  " MOTOR:\r\n"
-              .ascii  " TRACK:\r\n"
+              .ascii  " TOGGLE MOTOR:\r\n"
+              .ascii  " GO TO TRACK:\r\n"
 
-              .ascii  " SECTOR:"
+              .ascii  " FIND SECTOR ID:"
               ASCII_AT 28,4,^|"FOUND:\r\n"|
 
-              .ascii  " RPMs. :\r\n"
-              .ascii  " UpdSec:\r\n"
+              .ascii  " TEST RPMs.\r\n"
+              .ascii  " Update Time:\r\n"
+              .ascii  " ReadSects:\r\n"
+              .ascii  " ReadBytes:\r\n"
+              .ascii  " Test Tracks\r\n"
 
               .asciz  ""
 
