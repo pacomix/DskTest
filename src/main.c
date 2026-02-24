@@ -6,9 +6,11 @@
 #include "main.h"
 #include "firmware.h"
 
+#include "gate_array.inc"
 #include "fdc_funcs.inc"
 
-// Variables defined in crt0_cpc.s to avoid static initialization.
+// Variables defined in crt0_cpc.s to avoid static initialization code.
+// TODO - This could also be defined inside a __naked function within an __asm __endasm; block for better clarity...
 extern U8 uKeyPressed;
 extern U8 g_szBytes[6];  // Temp buffer used to convert from integer/byte to ascii
 extern U16 g_sTime;  // Time variable. Contains amount of interruptions happened.
@@ -16,19 +18,17 @@ extern U8 g_realTime[5];
 extern U8 g_realConstant18000[5];
 extern U8 g_realHalf[5];
 
-// extern U8 uTrack;
-// extern U8 uSectorID;
 extern bool g_bSectorIDNotFound;
 extern U16 uRPMs;
 extern U8 uRPMsDec;
 extern U16 uLoops;
 extern U8 uPartialSecs;
 extern U16 uPartialInts;
+extern U8 uReadSectors;
+extern U16 uReadBytes;
 extern U8 g_realLoops[5];
-// extern U8 uMotor;
-// extern U8 uDrive;
 
-#define OPTION_COUNT 6
+#define OPTION_COUNT 9
 extern const U8 szOptions;
 
 extern const U8 szInfoMsg;
@@ -40,6 +40,9 @@ extern U8 uSelectedOption;
 #define OPT_SECTI 3
 #define OPT_RPM   4
 #define OPT_UPD   5
+#define OPT_READ_SECTORS  6
+#define OPT_READ_BYTES  7
+#define OPT_TEST_TRACKS  8
 
 #define POS_Y_STAT_DRIVE 1
 #define POS_Y_STAT_MOTOR 2
@@ -47,6 +50,9 @@ extern U8 uSelectedOption;
 #define POS_Y_STAT_SECTI 4
 #define POS_Y_STAT_RPM   5
 #define POS_Y_STAT_UPD   6
+#define POS_Y_STAT_READ_SECTORS  7
+#define POS_Y_STAT_READ_BYTES  8
+#define POS_Y_STAT_TEST_TRACKS  9
 
 #define POS_X_STAT_DRIVE 21
 #define POS_X_STAT_MOTOR 21
@@ -55,6 +61,10 @@ extern U8 uSelectedOption;
 #define POS_X_STAT_SECTI2 36
 #define POS_X_STAT_RPM   5
 #define POS_X_STAT_UPD   21
+#define POS_X_STAT_READ_SECTORS 21
+#define POS_X_STAT_READ_BYTES   21
+#define POS_X_STAT_TEST_TRACKS_TRACK_ID   21
+#define POS_X_STAT_TEST_TRACKS_SECTOR_ID   27
 
 
 // Our interruption function. It simply increments our timer.
@@ -159,6 +169,17 @@ static void printStatusUpdSecs(void) {
   firm_set_cursor_at(POS_X_STAT_UPD, POS_Y_STAT_UPD);
   printInt((U16) uPartialSecs);
 }
+
+static void printStatusReadSectors(void) {
+  firm_set_cursor_at(POS_X_STAT_READ_SECTORS, POS_Y_STAT_READ_SECTORS);
+  printInt((U16) uReadSectors);
+}
+
+static void printStatusReadBytes(void) {
+  firm_set_cursor_at(POS_X_STAT_READ_BYTES, POS_Y_STAT_READ_BYTES);
+  printInt(uReadBytes);
+}
+
 void printStatusRPMs(void) {
   /*
   float fRPMs;
@@ -199,6 +220,12 @@ void printStatusRPMs(void) {
   
 }
 
+TODO - reestructurar opciones
+motor on/off - asignar una tecla
+drive - asignar tecla
+
+read bytes - enter y meter numero
+
 
 void printLabels(void) {
   printStatusDrives();
@@ -206,6 +233,8 @@ void printLabels(void) {
   printStatusTrack();
   printStatusSectorID();
   printStatusUpdSecs();
+  printStatusReadSectors();
+  printStatusReadBytes();
   
   // printLabel(&szOptions, 1);
   printText(&szOptions);
@@ -258,13 +287,44 @@ static void measureRPMs(void) {
   }
 }
 
+void myReadBytes(void) {
+
+  U8 uTrack = g_fdc_u8TrackSelection;
+  U8 uSector = g_fdc_u8SectorSelection;
+  U8* pTargetAddr = (U8*) 0xC000;
+
+  fdc_GoToTrack();
+  fdc_read_bytes(pTargetAddr, uReadBytes);
+
+  g_fdc_u8TrackSelection = uTrack;
+  g_fdc_u8SectorSelection = uSector;
+}
+
+void testTracks(void) {
+
+  g_fdc_u8TrackSelection = 41;
+
+  fdc_TurnMotorOn();
+  fdc_GoToTrack();
+  for (g_fdc_u8TrackSelection = 0; g_fdc_u8TrackSelection < 42; g_fdc_u8TrackSelection++) {
+    fdc_GoToTrack();
+    printStatusTrack();
+    for (g_fdc_u8SectorSelection = 193; g_fdc_u8SectorSelection < 202; g_fdc_u8SectorSelection++) {
+      do {
+        g_bSectorIDNotFound = fdc_FindSector();
+        printStatusSectorID();
+      } while(g_bSectorIDNotFound);
+    }
+  }
+  fdc_TurnMotorOff();
+}
 
 void main(void) {
 
   fdc_toggleDrives();
   
-  // firm_set_palette_color(0, 0b0000001100000011);
-  // firm_set_palette_color(1, 0b0001100000011000);
+  firm_set_palette_color(0, (U16) 0x1B1B);
+  firm_set_palette_color(1, (U16) 0);
 
   printText(&szInfoMsg);
   printLabels();
@@ -290,6 +350,13 @@ void main(void) {
           uPartialSecs -= 1;
           uPartialInts -= 300;
 
+        } else if (OPT_READ_SECTORS == uSelectedOption) {
+          uReadSectors--;
+          uReadBytes = uReadSectors << 9;
+
+        } else if (OPT_READ_BYTES == uSelectedOption) {
+          uReadBytes--;
+
         }
 
       } else if (uKeyPressed == CHAR_CURSOR_RIGHT) {
@@ -302,6 +369,13 @@ void main(void) {
         } else if (OPT_UPD == uSelectedOption) {
           uPartialSecs += 1;
           uPartialInts += 300;
+
+        } else if (OPT_READ_SECTORS == uSelectedOption) {
+          uReadSectors++;
+          uReadBytes = uReadSectors << 9;
+
+        } else if (OPT_READ_BYTES == uSelectedOption) {
+          uReadBytes++;
 
         }
 
@@ -325,6 +399,11 @@ void main(void) {
           } else {
             fdc_toggleMotor();
           }
+        
+        } else if ((OPT_READ_SECTORS == uSelectedOption) || (OPT_READ_BYTES == uSelectedOption)) {
+          myReadBytes();
+        } else if (OPT_TEST_TRACKS == uSelectedOption) {
+          testTracks();
         }
       }
 
