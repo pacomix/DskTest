@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import threading
+import platform
 
 MAX_ALLOCS_PER_NODE = 1000000
 # VERSION_SDCC = "3.2.1-8124"
@@ -119,7 +120,9 @@ class Project:
   SettingsFile = ''
   LastBuildFile = ''
 
+  _mediaFileList = []
   _dskFilename = ''
+  _cdtFilename = ''
   _binFilename = ''
   _symFilename = ''
   _lastBuild = '1'
@@ -176,6 +179,7 @@ class Project:
     self.FilePeepHole = PeepHoleFile
     self._binFilename = os.path.join(self.DirOutput, self.Name) + '.bin'
     self._dskFilename = os.path.join(self.DirDsk, self.Name) + '.dsk'
+    self._cdtFilename = os.path.join(self.DirDsk, self.Name) + '.cdt'
     self._symFilename = os.path.join(self.DirObject, self.Name) + '.noi'
 
     # Export the vars for availability in subprocesses.
@@ -329,7 +333,8 @@ class Project:
     self._fillLinkMaps()
 
     self._generateData()
-    self._generateDsk()
+
+    self._generateFinalMedia()
 
 
     # We use always "current" as intermediates dir so it always generates the intermediates files
@@ -729,44 +734,75 @@ class Project:
       print ('There are no additional data steps...')
       sys.exit(0)
 
-  def _generateDsk(self):
-
+  def _generateFinalMedia(self):
     assert self._loadAddress, \
       "[ERROR] _loadAddress should have been already set here.\n" \
       "Please review the build system since it must be automatically determined after assembling " \
       "the crt0 bootstrap."
+    
+    self._mediaFileList = os.listdir(self.DirOutput)
 
+    self._generateDsk()
+    self._generateCdt()
+
+  def _generateDsk(self):
     print ('\n= GENERATING DSK =')
-    print (' - Files:')
 
-    filelist = os.listdir(self.DirOutput)
-    if os.name == 'nt':
+    if platform.system() == 'Windows':
       command = SYSTEM_BUILD_DIR + '\\cpcdiskxp\\CPCDiskXP.exe -File %s -AddAmsdosHeader %s %s %s'
 
       bAddToDsk = '-AddToNewDsk '
-      for file in filelist:
+      for file in self._mediaFileList:
         commandDsk = command % (os.path.join(self.DirOutput, file), self._loadAddress, bAddToDsk, self._dskFilename)
-        #print 'GenerateDSKCommand: ' + commandDsk
-        print ('\t%s' % file)
+        print ('\n\tAdding file to DSK image file: [%s] => [%s]' % (file, commandDsk))
 
         subprocess.Popen(commandDsk, shell=True, stdout=self._logger, stderr=self._logger, encoding='utf-8').wait()
         if bAddToDsk == '-AddToNewDsk ':
           bAddToDsk = '-AddToExistingDsk '
-    else:
+    
+    elif platform.system() == 'Darwin':
+      print ('\nGenerating DSK image file:')
+
       command = SYSTEM_BUILD_DIR + os.path.sep + 'iDSK %s -n' % self._dskFilename
+      print ('\n\tCreating empty DSK image file: [%s]' % command)
       subprocess.Popen(command, shell=True, stdout=self._logger, stderr=self._logger, encoding='utf-8').wait()
 
       command = SYSTEM_BUILD_DIR + os.path.sep + 'iDSK %s -i %s -e %s -c %s'
-      for file in filelist:
+      for file in self._mediaFileList:
         commandDsk = command % (self._dskFilename, os.path.join(self.DirOutput, file), self._loadAddress, self._loadAddress)
+        print ('\n\tAdding file to DSK image file: [%s] => [%s]' % (file, commandDsk))
         subprocess.Popen(commandDsk, shell=True, stdout=self._logger, stderr=self._logger, encoding='utf-8').wait()
 
-      print ('\n\n\n\tContent of .dsk')
       command = SYSTEM_BUILD_DIR + os.path.sep + 'iDSK %s -l' % self._dskFilename
+      print ('\n\n\tContent of DSK image file: [%s]' % command)
       subprocess.Popen(command, shell=True, stdout=self._logger, stderr=self._logger, encoding='utf-8').wait()
 
     if not self.existFile(self._dskFilename):
-      raise Exception('\nOutput file was not generated. Generating DSK error!!!')
+      raise Exception('\nOutput file was not added. Generating DSK error!!!')
+
+  def _generateCdt(self):
+    print ('\n= GENERATING CDT =')
+    
+    if platform.system() == 'Windows':
+      cdt_executable = SYSTEM_BUILD_DIR + '\\2cdt.exe'
+
+    elif platform.system() == 'Darwin':
+      cdt_executable = SYSTEM_BUILD_DIR + os.path.sep + ('2cdt_macos_x86' if platform.processor() == 'i386' else '2cdt_macos_silicon')
+    
+    assert cdt_executable, "Platform not supported => [%s]" % platform.system()
+
+    command = cdt_executable + ' %s -X 0x%s -L 0x%s -F 2 -P -r %s %s %s'
+    bFirstFile=True
+    for file in self._mediaFileList:
+      commandCdt = command % ('-n' if bFirstFile else '', self._loadAddress, self._loadAddress, file, os.path.join(self.DirOutput, file), self._cdtFilename)
+
+      print ('\n\tAdding file to CDT image file: [%s] => [%s]' % (file, commandCdt))
+      procCreateCDT = subprocess.Popen(commandCdt, shell=True, stdout=self._logger, stderr=self._logger, encoding='utf-8')
+      procCreateCDT.communicate()
+      bFirstFile=False
+
+      assert procCreateCDT.returncode == 0, 'Adding file to CDT failed. [%s] => [%s]' % (file, self._cdtFilename)
+
 
   def _parseMapFileFillArea(self, fp, TAG_AREA, target):
     """
@@ -1070,9 +1106,9 @@ class Project:
 
   def _launchDsk(self):
     #command = SYSTEM_BUILD_DIR + '\\cpce\\cpce95.exe /a+ ' + self._dskFilename
-    if os.name == 'nt':
+    if platform.system() == 'Windows':
       command = SYSTEM_BUILD_DIR + '\\winape\\winape.exe ' + self._dskFilename + ' /A ' + '/SYM:' + self._symFilename
-    else:
+    elif platform.system() == 'Darwin':
       command = "\"/Applications/Retro Virtual Machine 2.app/Contents/MacOS/Retro Virtual Machine 2\" -b=cpc6128 -i " + self._dskFilename + " -c='run\"" + self.Name + "\\n'"
 
     print ('Running image:\n\tcmd: [%s]' % command)
@@ -1101,14 +1137,14 @@ def importsFromProject(relPath):
 
 def configurePaths():
   global PATH_SDCC, ASM_EXEC, COMP_EXEC, EXOMIZER_EXE, HEX2BIN_EXE
-  EXEC_EXT = '.exe' if os.name == 'nt' else ''
+  EXEC_EXT = '.exe' if platform.system() == 'Windows' else ''
   # PATH_SDCC = os.path.join("c:\\amstrad\\build\\sdcc", VERSION_SDCC, "bin")
   _basedir = os.path.abspath(os.path.dirname(__file__))
   PATH_SDCC = os.path.join(_basedir, "sdcc", sys.platform, VERSION_SDCC, "bin")
   ASM_EXEC = os.path.join(PATH_SDCC, "sdasz80" + EXEC_EXT)
   COMP_EXEC = os.path.join(PATH_SDCC, "sdcc" + EXEC_EXT)
   EXOMIZER_EXE = os.path.abspath(os.path.join(_basedir, '..', 'ThirdParty', 'Exomizer_3.1.1', sys.platform, 'exomizer' + EXEC_EXT))
-  HEX2BIN_EXE = os.path.join(_basedir, 'hex2bin', sys.platform, 'bin', 'hex2bin' + ('.exe' if os.name == 'nt' else ''))
+  HEX2BIN_EXE = os.path.join(_basedir, 'hex2bin', sys.platform, 'bin', 'hex2bin' + ('.exe' if platform.system() == 'Windows' else ''))
   os.environ['CPC_BUILD_EXE_EXOMIZER'] = EXOMIZER_EXE
   os.environ['CPC_BUILD_PATH_SDCC'] = PATH_SDCC
   os.environ['CPC_BUILD_EXE_ASM'] = ASM_EXEC
