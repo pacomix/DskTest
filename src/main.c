@@ -316,8 +316,21 @@ void main(void) {
         g_fdc_u8SectorSelection++;
       } else if (g_u8KeyPressed == FIRM_KEY_ENTER_BIG || g_u8KeyPressed == FIRM_KEY_ENTER_SMALL || g_u8KeyPressed == FIRM_KEY_COPY) {
         if (OPT_TEST_SECID == g_u8SelectedOption) {
-          prepareHeadToTrack();
-          g_bSectorIDNotFound = fdc_FindSector();
+          // Retry several times before it is not considered found. Re-use here a U8 variable for the counting.
+          g_u8RPMsDec=4;
+          while(g_u8RPMsDec--) {
+            g_u8KeyPressed=8;
+            prepareHeadToTrack();
+            do {
+              g_bSectorIDNotFound = fdc_FindSector();
+              printStatusSectorID();
+              g_u8KeyPressed--;
+            } while(g_bSectorIDNotFound && g_u8KeyPressed);
+            
+            if (g_u8KeyPressed) {
+              break;
+            }
+          };
           fdc_TurnMotorOff();
         } else if (OPT_TEST_RPM == g_u8SelectedOption) {
           if (!g_u16Time) {
